@@ -1,0 +1,5 @@
+*.env
+*.csv
+*.Rhistory
+*.Rproj.user
+*.Renviron
