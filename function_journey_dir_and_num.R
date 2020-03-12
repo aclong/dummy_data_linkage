@@ -6,7 +6,7 @@ library(lubridate)
 
 #now make the for loop a function
 
-assign_dir <- funtion(input_data_table, same_journey_mins, same_stage_mins, max_stage, min_stage){
+assign_dir <- function(input_data_table, same_journey_mins, same_stage_mins, max_stage, min_stage){
   
   # input data table must have the columns: 
   # tran_time POSIXlt, fare_stage int
