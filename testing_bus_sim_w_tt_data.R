@@ -108,7 +108,7 @@ bus_dir_plot_one
 
 
 #take a sample
-ransam_sub <- sub_route_day_tt[sample(.N, ceiling(.5*nrow(sub_route_day_tt)))][order(tran_time)]
+ransam_sub <- sub_route_day_tt[sample(.N, ceiling(.2*nrow(sub_route_day_tt)))][order(tran_time)]
 
 #now you have your sample!!!
 #now plot with reversed stages
@@ -123,14 +123,17 @@ bus_dir_plot_one
 #did this quite a few times so maybe just randomly select a lot more next time
 
 #get max and min fake stages
-min_stage <- min(ransam_sub$fake_stage)
+min_stage <- min(sub_route_day_tt$fake_stage)
 
-max_stage <- max(ransam_sub$fake_stage)
+max_stage <- max(sub_route_day_tt$fake_stage)
 
 #so, the previous threshold inputs are
 
+abs_same_journey_window <- duration(20, units = "minutes")
 same_journey_window <- duration(20, units = "minutes")
-same_stage_window <- duration(5, units = "minutes")
+
+
+same_stage_window <- duration(3, units = "minutes")
 
 #this is a bit samller than it would be in the real one
 
@@ -189,6 +192,7 @@ for(i in 1:nrow(ransam_sub)){
 
 for(i in 1:nrow(ransam_sub)){
   
+  print(i)
   #statement to assign direction and journey number
   if(i==1){
     direction <- "unknown"
@@ -196,22 +200,50 @@ for(i in 1:nrow(ransam_sub)){
            | (ransam_sub$fake_stage[i]==max_stage && ransam_sub$fake_stage[i-1]!=max_stage)
            ){
     direction <- "unknown"
-  }else if((((ransam_sub$tran_time[i]-ransam_sub$tran_time[i-1])<=(ransam_sub$tran_time[i+1]-ransam_sub$tran_time[i])) 
+  }else if(((((ransam_sub$tran_time[i]-ransam_sub$tran_time[i-1])<=(ransam_sub$tran_time[i+1]-ransam_sub$tran_time[i])) | (i==nrow(ransam_sub))) 
            && ((ransam_sub$fake_stage[i]-ransam_sub$fake_stage[i-1])>0) 
            && (ransam_sub$tran_time[i]<(ransam_sub$tran_time[i-1]+same_journey_window))) 
            | (((ransam_sub$tran_time[i]-ransam_sub$tran_time[i-1])>(ransam_sub$tran_time[i+1]-ransam_sub$tran_time[i])) 
+              && (i<nrow(ransam_sub))
               && ((ransam_sub$fake_stage[i+1]-ransam_sub$fake_stage[i])>0) 
-              && (ransam_sub$tran_time[i+1]<(ransam_sub$tran_time[i]+same_journey_window)))
+              && (ransam_sub$tran_time[i+1]<(ransam_sub$tran_time[i]+same_journey_window))) 
+           | (((ransam_sub$tran_time[i]-ransam_sub$tran_time[i-1])>(ransam_sub$tran_time[i+2]-ransam_sub$tran_time[i])) 
+              && (i<(nrow(ransam_sub)-1))
+              && ((ransam_sub$fake_stage[i+2]-ransam_sub$fake_stage[i])>0) 
+              && (ransam_sub$tran_time[i+2]<(ransam_sub$tran_time[i]+same_journey_window))) 
+           | (((ransam_sub$tran_time[i]-ransam_sub$tran_time[i-1])>(ransam_sub$tran_time[i+3]-ransam_sub$tran_time[i])) 
+              && (i<(nrow(ransam_sub)-2))
+              && ((ransam_sub$fake_stage[i+3]-ransam_sub$fake_stage[i])>0) 
+              && (ransam_sub$tran_time[i+3]<(ransam_sub$tran_time[i]+same_journey_window)))
+           | ((ransam_sub$fake_stage[i]!=min_stage) 
+              && (ransam_sub$fake_stage[i-1]==min_stage) 
+              && (ransam_sub$tran_time[i]<(ransam_sub$tran_time[i-1]+same_journey_window)))
            ){
     direction <- "out"
-  }else if((((ransam_sub$tran_time[i]-ransam_sub$tran_time[i-1])<=(ransam_sub$tran_time[i+1]-ransam_sub$tran_time[i])) 
+  }else if(((((ransam_sub$tran_time[i]-ransam_sub$tran_time[i-1])<=(ransam_sub$tran_time[i+1]-ransam_sub$tran_time[i])) | i==nrow(ransam_sub)) 
            && ((ransam_sub$fake_stage[i]-ransam_sub$fake_stage[i-1])<0)
            && (ransam_sub$tran_time[i]<(ransam_sub$tran_time[i-1]+same_journey_window))) 
            | (((ransam_sub$tran_time[i]-ransam_sub$tran_time[i-1])>(ransam_sub$tran_time[i+1]-ransam_sub$tran_time[i])) 
+              && (i<nrow(ransam_sub)) 
               && ((ransam_sub$fake_stage[i+1]-ransam_sub$fake_stage[i])<0) 
               && (ransam_sub$tran_time[i+1]<(ransam_sub$tran_time[i]+same_journey_window)))
+           | (((ransam_sub$tran_time[i]-ransam_sub$tran_time[i-1])>(ransam_sub$tran_time[i+2]-ransam_sub$tran_time[i])) 
+              && (i<(nrow(ransam_sub)-1)) 
+              && ((ransam_sub$fake_stage[i+2]-ransam_sub$fake_stage[i])<0) 
+              && (ransam_sub$tran_time[i+2]<(ransam_sub$tran_time[i]+same_journey_window)))
+           | (((ransam_sub$tran_time[i]-ransam_sub$tran_time[i-1])>(ransam_sub$tran_time[i+3]-ransam_sub$tran_time[i])) 
+              && (i<(nrow(ransam_sub)-2)) 
+              && ((ransam_sub$fake_stage[i+3]-ransam_sub$fake_stage[i])<0) 
+              && (ransam_sub$tran_time[i+3]<(ransam_sub$tran_time[i]+same_journey_window)))
+           | ((ransam_sub$fake_stage[i]!=max_stage) 
+              && (ransam_sub$fake_stage[i-1]==max_stage) 
+              && (ransam_sub$tran_time[i]<(ransam_sub$tran_time[i-1]+same_journey_window)))
            ){
     direction <- "in"
+  }else if((ransam_sub$fake_stage[i]==ransam_sub$fake_stage[i-1]) 
+           && (ransam_sub$tran_time[i]>(ransam_sub$tran_time[i-1]+same_stage_window))
+           ){
+    direction <- "unknown"
   }else if(((ransam_sub$fake_stage[i]==ransam_sub$fake_stage[i-1]) 
             && (ransam_sub$tran_time[i]<(ransam_sub$tran_time[i-1]+same_stage_window)))
            ){
@@ -230,6 +262,7 @@ for(i in 1:nrow(ransam_sub)){
   #then statement to add these to the new columns
   ransam_sub$new_jorno[i] <- journey_counter
   
+
 }
 
 #need more colours
