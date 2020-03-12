@@ -349,12 +349,13 @@ head(dt_sample)
 
 setkey(dt_sample, operator, tran_time)
 
-dt_test <- dt_sample[, new_dir:=ifelse((tran_time<shift(tran_time+same_journey_window, 1) 
-                                       && fake_stage<shift(fake_stage,1) 
-                                       && (shift(tran_time, 1)-tran_time)<(shift(tran_time, 1, type="lead")-tran_time)
+dt_test <- dt_sample[, new_dir:=ifelse(((tran_time<shift(tran_time+same_journey_window, 1)) 
+                                       && (fake_stage<shift(fake_stage,1)) 
+                                       && (tran_time-shift(tran_time,1))<(shift(tran_time, 1, type="lead")-tran_time)
                                        ) | ((tran_time+same_journey_window)<shift(tran_time, 1, type = "lead")
                                             &&(shift(tran_time, 1)-tran_time)>(shift(tran_time, 1, type="lead")-tran_time)
-                                            && (fake_stage>shift(fake_stage,1, type = "lead"))) , "in", ifelse() ), by=.(operator, route)]
+                                            && (fake_stage>shift(fake_stage,1, type = "lead"))), 
+                                       "in", ifelse() ), by=.(operator, route)]
 
 
 
