@@ -321,7 +321,6 @@ for(i in 1:nrow(ransam_sub)){
   #then statement to add these to the new columns
   ransam_sub$new_jorno[i] <- journey_counter
   
-
 }
 
 #need more colours
@@ -338,3 +337,26 @@ bus_dir_plot_one <- ggplot(ransam_sub, aes(x=tran_time, y=fake_stage, col=new_jo
   scale_shape_manual(name= "Bus Direction", values = c("out"=2, "in"=6, "unknown"=4))
 
 bus_dir_plot_one
+
+#now translate into a DT solution
+
+class(ransam_sub)
+
+#keep only necessary columns
+dt_sample <- ransam_sub[, .(operator, route, tran_time, fake_stage),]
+
+head(dt_sample)
+
+setkey(dt_sample, operator, tran_time)
+
+dt_test <- dt_sample[, new_dir:=ifelse((tran_time<shift(tran_time+same_journey_window, 1) 
+                                       && fake_stage<shift(fake_stage,1) 
+                                       && (shift(tran_time, 1)-tran_time)<(shift(tran_time, 1, type="lead")-tran_time)
+                                       ) | ((tran_time+same_journey_window)<shift(tran_time, 1, type = "lead")
+                                            &&(shift(tran_time, 1)-tran_time)>(shift(tran_time, 1, type="lead")-tran_time)
+                                            && (fake_stage>shift(fake_stage,1, type = "lead"))) , "in", ifelse() ), by=.(operator, route)]
+
+
+
+
+

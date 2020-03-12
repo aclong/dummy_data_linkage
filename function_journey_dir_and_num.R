@@ -47,63 +47,123 @@ assign_dir <- function(input_data_table, same_journey_mins, same_stage_mins, max
   input_data_table$new_dir <- "blank"
   input_data_table$new_jorno <- 0
   
-  #run through the loop
+  #now the for loop
   for(i in 1:nrow(input_data_table)){
     
+    print(i)
     #statement to assign direction and journey number
-    if(i==1){
+    if((i==1)
+       && ((((input_data_table$fare_stage[i+1]-input_data_table$fare_stage[i])>0) 
+            && (input_data_table$tran_time[i+1]<(input_data_table$tran_time[i]+same_journey_window)))
+           | ((input_data_table$fare_stage[i+1]==input_data_table$fare_stage[i]) 
+              && ((input_data_table$fare_stage[i+2]-input_data_table$fare_stage[i])>0) 
+              && (input_data_table$tran_time[i+2]<(input_data_table$tran_time[i]+same_journey_window)))
+           | ((input_data_table$fare_stage[i+1]==input_data_table$fare_stage[i])
+              && (input_data_table$fare_stage[i+2]==input_data_table$fare_stage[i])
+              && ((input_data_table$fare_stage[i+3]-input_data_table$fare_stage[i])>0) 
+              && (input_data_table$tran_time[i+3]<(input_data_table$tran_time[i]+same_journey_window))))
+    ){
+      #checks whether any of the next three points is increasing and within journey window
+      #if so assigns out
+      
+      direction<- "out"
+    }else if((i==1)
+             && ((((input_data_table$fare_stage[i+1]-input_data_table$fare_stage[i])<0) 
+                  && (input_data_table$tran_time[i+1]<(input_data_table$tran_time[i]+same_journey_window)))
+                 | ((input_data_table$fare_stage[i+1]==input_data_table$fare_stage[i]) 
+                    && ((input_data_table$fare_stage[i+2]-input_data_table$fare_stage[i])<0) 
+                    && (input_data_table$tran_time[i+2]<(input_data_table$tran_time[i]+same_journey_window)))
+                 | ((input_data_table$fare_stage[i+1]==input_data_table$fare_stage[i])
+                    && (input_data_table$fare_stage[i+2]==input_data_table$fare_stage[i])
+                    && ((input_data_table$fare_stage[i+3]-input_data_table$fare_stage[i])<0) 
+                    && (input_data_table$tran_time[i+3]<(input_data_table$tran_time[i]+same_journey_window))))){
+      direction <- "in"
+      
+      #like above but for decreasing
+      
+    }else if((i==1) 
+             && (input_data_table$tran_time[i+1]>(input_data_table$tran_time[i]+same_journey_window))
+             && (input_data_table$tran_time[i]>(input_data_table$tran_time[i-1]+same_journey_window))){
+      #checks if the transaction if too far from any other transaction to be compared
+      
       direction <- "unknown"
     }else if((input_data_table$fare_stage[i]==min_stage && input_data_table$fare_stage[i-1]!=min_stage) 
              | (input_data_table$fare_stage[i]==max_stage && input_data_table$fare_stage[i-1]!=max_stage)
     ){
+      #if the transaction is at the minimum or maximum farestage
+      # don't know why the second part of this is in there about cheking that the previous point is not min/max stage
       direction <- "unknown"
-    }else if(((((input_data_table$tran_time[i]-input_data_table$tran_time[i-1])<=(input_data_table$tran_time[i+1]-input_data_table$tran_time[i])) | (i==nrow(input_data_table))) 
+    }else if(input_data_table$tran_time[i]==input_data_table$tran_time[i-1]){
+      #sanity check for a time error in sample set 
+      #(transaction time rounding led to a lower fare stage being assinged the same time as a higher one or vice versa)
+      direction <- direction
+    }else if(((((input_data_table$tran_time[i]-input_data_table$tran_time[i-1])<(input_data_table$tran_time[i+1]-input_data_table$tran_time[i])) | (i==nrow(input_data_table))) 
               && ((input_data_table$fare_stage[i]-input_data_table$fare_stage[i-1])>0) 
-              && (input_data_table$tran_time[i]<(input_data_table$tran_time[i-1]+same_journey_window))) 
-             | (((input_data_table$tran_time[i]-input_data_table$tran_time[i-1])>(input_data_table$tran_time[i+1]-input_data_table$tran_time[i])) 
+              && (input_data_table$tran_time[i]<(input_data_table$tran_time[i-1]+same_journey_window))
+              && (input_data_table$fare_stage[i]>1))
+             | ((((input_data_table$tran_time[i]-input_data_table$tran_time[i-1])>(input_data_table$tran_time[i+1]-input_data_table$tran_time[i]))) 
                 && (i<nrow(input_data_table))
                 && ((input_data_table$fare_stage[i+1]-input_data_table$fare_stage[i])>0) 
                 && (input_data_table$tran_time[i+1]<(input_data_table$tran_time[i]+same_journey_window))) 
-             | (((input_data_table$tran_time[i]-input_data_table$tran_time[i-1])>(input_data_table$tran_time[i+2]-input_data_table$tran_time[i])) 
+             | ((((input_data_table$tran_time[i]-input_data_table$tran_time[i-1])>(input_data_table$tran_time[i+2]-input_data_table$tran_time[i]))) 
                 && (i<(nrow(input_data_table)-1))
+                && (input_data_table$fare_stage[i+1]==input_data_table$fare_stage[i])
                 && ((input_data_table$fare_stage[i+2]-input_data_table$fare_stage[i])>0) 
                 && (input_data_table$tran_time[i+2]<(input_data_table$tran_time[i]+same_journey_window))) 
-             | (((input_data_table$tran_time[i]-input_data_table$tran_time[i-1])>(input_data_table$tran_time[i+3]-input_data_table$tran_time[i])) 
+             | ((((input_data_table$tran_time[i]-input_data_table$tran_time[i-1])>(input_data_table$tran_time[i+3]-input_data_table$tran_time[i])))
                 && (i<(nrow(input_data_table)-2))
+                && (input_data_table$fare_stage[i+1]==input_data_table$fare_stage[i])
+                && (input_data_table$fare_stage[i+2]==input_data_table$fare_stage[i])
                 && ((input_data_table$fare_stage[i+3]-input_data_table$fare_stage[i])>0) 
                 && (input_data_table$tran_time[i+3]<(input_data_table$tran_time[i]+same_journey_window)))
              | ((input_data_table$fare_stage[i]!=min_stage) 
                 && (input_data_table$fare_stage[i-1]==min_stage) 
                 && (input_data_table$tran_time[i]<(input_data_table$tran_time[i-1]+same_journey_window)))
     ){
+      #see if the direction is out
+      #compares against the point before and the 3 following points 
+      #for relative positions in the fare stage
+      #turning this into a data.table commange would sort out the iterability of this
       direction <- "out"
-    }else if(((((input_data_table$tran_time[i]-input_data_table$tran_time[i-1])<=(input_data_table$tran_time[i+1]-input_data_table$tran_time[i])) | i==nrow(input_data_table)) 
+    }else if(((((input_data_table$tran_time[i]-input_data_table$tran_time[i-1])<(input_data_table$tran_time[i+1]-input_data_table$tran_time[i])) | i==nrow(input_data_table)) 
               && ((input_data_table$fare_stage[i]-input_data_table$fare_stage[i-1])<0)
               && (input_data_table$tran_time[i]<(input_data_table$tran_time[i-1]+same_journey_window))) 
-             | (((input_data_table$tran_time[i]-input_data_table$tran_time[i-1])>(input_data_table$tran_time[i+1]-input_data_table$tran_time[i])) 
+             | ((((input_data_table$tran_time[i]-input_data_table$tran_time[i-1])>(input_data_table$tran_time[i+1]-input_data_table$tran_time[i]))) 
                 && (i<nrow(input_data_table)) 
                 && ((input_data_table$fare_stage[i+1]-input_data_table$fare_stage[i])<0) 
                 && (input_data_table$tran_time[i+1]<(input_data_table$tran_time[i]+same_journey_window)))
-             | (((input_data_table$tran_time[i]-input_data_table$tran_time[i-1])>(input_data_table$tran_time[i+2]-input_data_table$tran_time[i])) 
-                && (i<(nrow(input_data_table)-1)) 
+             | ((((input_data_table$tran_time[i]-input_data_table$tran_time[i-1])>(input_data_table$tran_time[i+2]-input_data_table$tran_time[i])))
+                && (i<(nrow(input_data_table)-1))
+                && (input_data_table$fare_stage[i+1]==input_data_table$fare_stage[i])
                 && ((input_data_table$fare_stage[i+2]-input_data_table$fare_stage[i])<0) 
                 && (input_data_table$tran_time[i+2]<(input_data_table$tran_time[i]+same_journey_window)))
-             | (((input_data_table$tran_time[i]-input_data_table$tran_time[i-1])>(input_data_table$tran_time[i+3]-input_data_table$tran_time[i])) 
-                && (i<(nrow(input_data_table)-2)) 
+             | ((((input_data_table$tran_time[i]-input_data_table$tran_time[i-1])>(input_data_table$tran_time[i+3]-input_data_table$tran_time[i]))) 
+                && (i<(nrow(input_data_table)-2))
+                && (input_data_table$fare_stage[i+1]==input_data_table$fare_stage[i])
+                && (input_data_table$fare_stage[i+2]==input_data_table$fare_stage[i])
                 && ((input_data_table$fare_stage[i+3]-input_data_table$fare_stage[i])<0) 
                 && (input_data_table$tran_time[i+3]<(input_data_table$tran_time[i]+same_journey_window)))
              | ((input_data_table$fare_stage[i]!=max_stage) 
                 && (input_data_table$fare_stage[i-1]==max_stage) 
                 && (input_data_table$tran_time[i]<(input_data_table$tran_time[i-1]+same_journey_window)))
     ){
+      #like above but for fare stages going down
+      
       direction <- "in"
-    }else if((input_data_table$fare_stage[i]==input_data_table$fare_stage[i-1]) 
+    }else if((input_data_table$fare_stage[i]==input_data_table$fare_stage[i-1])
              && (input_data_table$tran_time[i]>(input_data_table$tran_time[i-1]+same_stage_window))
+             && (input_data_table$tran_time[i+1]>(input_data_table$tran_time[i]+same_stage_window))
     ){
+      #check that the transaction is within reasonable distance of the previous one
+      #if not assign unkown
+      
       direction <- "unknown"
     }else if(((input_data_table$fare_stage[i]==input_data_table$fare_stage[i-1]) 
               && (input_data_table$tran_time[i]<(input_data_table$tran_time[i-1]+same_stage_window)))
     ){
+      #if the transaction is within the stage window of the previous one and 
+      #none of the other transactions relate to it then assign same as previous
+      
       direction <- direction
     }
     
@@ -116,7 +176,6 @@ assign_dir <- function(input_data_table, same_journey_mins, same_stage_mins, max
     }else if(input_data_table$new_dir[i]!=input_data_table$new_dir[i-1]){
       journey_counter <- journey_counter+1
     }
-    
     #then statement to add these to the new columns
     input_data_table$new_jorno[i] <- journey_counter
     
