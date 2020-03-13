@@ -38,11 +38,11 @@ my_date <- "2015-10-13"
 bus_route <- 97
 operator_code <- "TNXB"
 
-time_one <- "12:00:00"
-time_two <- "16:05:00"
+time_one <- "09:00:00"
+time_two <- "19:05:00"
 
 #get out one bus service for the given day
-route_day_tt <- dbGetQuery(con, glue("SELECT * FROM timetables.tt_all WHERE operator='{operator_code}' AND route='{bus_route}' AND start_date<'{my_date}' AND last_date>'{my_date}' AND dow='1111100' AND (journey_scheduled BETWEEN '{time_one}' AND '{time_two}');"))
+route_day_tt <- dbGetQuery(con, glue("SELECT * FROM timetables.tt_all WHERE operator='{operator_code}' AND route='{bus_route}' AND start_date<'{my_date}' AND last_date>'{my_date}' AND dow='1111100' AND (journey_scheduled BETWEEN '{time_one}' AND '{time_two}') ORDER BY journey_scheduled;"))
 
 head(route_day_tt)
 
@@ -52,14 +52,15 @@ route_day_tt <- setDT(route_day_tt)
 route_day_tt$tran_time <- as.POSIXct(route_day_tt$arrive, format="%H:%M:%S")
 
 #how many different overlapping timetables?
-unique(route_day_tt$start_date)
+print(paste0(length(unique(route_day_tt$start_date)), " different route start dates"))
 
-unique(route_day_tt)
+print(paste0(length(unique(route_day_tt$id)), " different route ids"))
 
-unique(route_day_tt$id)
+print(paste0(length(unique(route_day_tt$journey_scheduled)), " different journey start times"))
 
+#look at the departure times
+#journey is about 50 min at midday
 unique(route_day_tt$journey_scheduled)
-
 
 #ids and directions
 ids_dirs <- route_day_tt[,.(id, direction),.(id, direction)]
@@ -73,6 +74,13 @@ list_of_dep_times <- c("12:00:00", "12:54:00", "13:45:00", "14:36:00", "15:30:00
 
 sub_route_day_tt <- route_day_tt[journey_scheduled %in% list_of_dep_times,]
 
+#lets make another subset
+sec_list_of_deps <- c("09:01:00", "10:10:00", "11:05:00", "12:06:00", "13:01:00", "13:55:00")
+
+sec_sub_route_day_tt <- route_day_tt[journey_scheduled %in% sec_list_of_deps,]
+
+sub_route_day_tt <- sec_sub_route_day_tt
+
 head(sub_route_day_tt)
 
 unique(sub_route_day_tt$direction)
@@ -81,28 +89,31 @@ unique(sub_route_day_tt$direction)
 sub_route_day_tt[,.(journey_scheduled, direction, last_stop = max(tran_time)),.(journey_scheduled, direction)]
 #sucessful fake data!!!
 
+#second time around the ins and outs didn't work so well
+#so different version of the reving is needed
+
+
+
 sub_route_day_tt <- sub_route_day_tt[order(tran_time)]
 head(sub_route_day_tt)
 
 #make fake fare stages
 sub_route_day_tt$fake_stage <- round(sub_route_day_tt$n/3)
 
-#flip over the outward journeys
-rev_stages <- rev(sub_route_day_tt$fake_stage[sub_route_day_tt$direction=="I" & sub_route_day_tt$journey_scheduled=="12:54:00"])
-
-sub_route_day_tt$fake_stage[sub_route_day_tt$direction=="I"  & sub_route_day_tt$journey_scheduled=="12:54:00"] <- rev_stages
-
-rev_stages <- rev(sub_route_day_tt$fake_stage[sub_route_day_tt$direction=="I" & sub_route_day_tt$journey_scheduled=="14:36:00"])
-
-sub_route_day_tt$fake_stage[sub_route_day_tt$direction=="I"  & sub_route_day_tt$journey_scheduled=="14:36:00"] <- rev_stages
-
+for(i in 1:length(sec_list_of_deps)){
+  if(i%%2==0){
+    rev_stages <- rev(sub_route_day_tt$fake_stage[sub_route_day_tt$journey_scheduled==sec_list_of_deps[i]])
+    
+    sub_route_day_tt$fake_stage[sub_route_day_tt$journey_scheduled==sec_list_of_deps[i]] <- rev_stages
+  }
+}
 
 #plot with the current data
 bus_dir_plot_one <- ggplot(sub_route_day_tt, aes(x=tran_time, y=fake_stage, col=journey_scheduled, shape=direction)) +
   theme_ipsum_rc() +
   geom_point() +
-  scale_colour_ft(name = "Journey No.") +
-  scale_shape_manual(name= "Bus Direction", values = c("O"=2, "I"=6, "unknown"=4))
+  scale_colour_ft(name = "Journey No.")# +
+  #scale_shape_manual(name= "Bus Direction", values = c("O"=2, "I"=6, "unknown"=4))
 
 bus_dir_plot_one
 
@@ -115,8 +126,8 @@ ransam_sub <- sub_route_day_tt[sample(.N, ceiling(.2*nrow(sub_route_day_tt)))][o
 bus_dir_plot_one <- ggplot(ransam_sub, aes(x=arrive, y=fake_stage, col=journey_scheduled, shape=direction)) +
   theme_ipsum_rc() +
   geom_point() +
-  scale_colour_ft(name = "Journey No.") +
-  scale_shape_manual(name= "Bus Direction", values = c("O"=2, "I"=6, "unknown"=4))
+  scale_colour_ft(name = "Journey No.")# +
+  #scale_shape_manual(name= "Bus Direction", values = c("O"=2, "I"=6, "unknown"=4))
 
 bus_dir_plot_one
 
