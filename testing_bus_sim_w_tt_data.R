@@ -368,7 +368,38 @@ dt_test <- dt_sample[, new_dir:=ifelse(((tran_time<shift(tran_time+same_journey_
                                             && (fake_stage>shift(fake_stage,1, type = "lead"))), 
                                        "in", ifelse() ), by=.(operator, route)]
 
+###############################
+#SQL version
+##rather than data.table it would be best to turn it into an SQL query
 
+# here is an example of conditional ordering/formatting
+#https://stackoverflow.com/questions/50599371/sql-server-calculate-cumulative-sum-conditional-running-total-depending-on-dif
 
+#also this one looks usefull
+#https://stackoverflow.com/questions/51954221/increment-column-for-streaks/51954348#51954348
 
+#and this
+#https://stackoverflow.com/questions/18987791/how-do-i-efficiently-select-the-previous-non-null-value
 
+#getting closer to it with btree/knn workings
+#https://www.postgresql.org/message-id/flat/ce35e97b-cf34-3f5d-6b99-2c25bae49999@postgrespro.ru#ce35e97b-cf34-3f5d-6b99-2c25bae49999@postgrespro.ru
+
+#let's write a db version of the dummy data
+
+#turn fare stage back to numeric before
+test_one$fare_stage <- as.integer(test_one$fare_stage)
+
+dbWriteTable(con, c("dummy_trans_tt", "test_one_ran_samp"), value = test_one, row.names=FALSE, overwrite=TRUE)
+
+#now that the table is created try the SQL version
+
+#make some string versions of the same journey window
+
+string_journey_window <- "00:20:00"
+string_stage_window <- "00:03:00"
+
+sql_test <- dbGetQuery(con, glue("SELECT *, CASE WHEN (((fare_stage>LAG(fare_stage, 1)) AND (tran_time-LAG(tran_time, 1)<'{string_journey_window}') AND (tran_time-LAG(tran_time, 1)<LEAD(tran_time, 1)-tran_time)) OR ((fare_stage<LEAD(fare_stage, 1)) AND (LEAD(tran_time, 1)-tran_time<'{string_journey_window}') AND (tran_time-LAG(tran_time, 1)<LEAD(tran_time, 1)-tran_time))) THEN 'out' FROM dummy_trans_tt.test_one_ran_samp;"))
+lapply(sql_test, class)
+
+#so the <-> operator is "nearest"
+#use that in conjunction with
