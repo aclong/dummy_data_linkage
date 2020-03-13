@@ -1,5 +1,4 @@
 #write function version here
-
 library(RPostgreSQL)
 library(data.table)
 library(lubridate)
@@ -49,7 +48,7 @@ assign_dir <- function(input_data_table, same_journey_mins, same_stage_mins, max
   
   #now the for loop
   for(i in 1:nrow(input_data_table)){
-    
+    print(i)
     #statement to assign direction and journey number
     if((i==1)
        && ((((input_data_table$fare_stage[i+1]-input_data_table$fare_stage[i])>0) 
@@ -181,5 +180,7 @@ assign_dir <- function(input_data_table, same_journey_mins, same_stage_mins, max
     
   }
   
-  
+  #return the result
+  return(input_data_table)
 }
+
