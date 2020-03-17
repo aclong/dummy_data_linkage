@@ -411,11 +411,18 @@ max_stage <- dbGetQuery(con, glue("SELECT MAX(fare_stage) FROM dummy_trans_tt.te
 
 #now us them in another query
 
+sanity_check_time <-3
+
 #will need another set of parameters for this window
 
-avg_journey_time <- dbGetQuery(con, glue("SELECT ends.fare_stage, CASE WHEN ends.fare_stage={min_stage} THEN 'in' WHEN ends.fare_stage={max_stage} THEN 'out' END AS direction, ends.tran_time-(LAG(ends.tran_time, 1) OVER (PARTITION BY ends.operator, ends.route ORDER BY ends.tran_time)) FROM",
+avg_journey_time <- dbGetQuery(con, glue("SELECT ends.fare_stage, ",
+                                         "CASE WHEN ends.fare_stage={min_stage} THEN 'in' WHEN ends.fare_stage={max_stage} THEN 'out' END AS direction, ",
+                                         "ends.tran_time-(LAG(ends.tran_time, 1) OVER (PARTITION BY ends.operator, ends.route ORDER BY ends.tran_time)) AS journey_time, ",
+                                         "DATE_PART('hour', ends.tran_time) AS hour_of_day, ",
+                                         "DATE_PART('dow', ends.tran_time) AS day_of_week FROM ",
                                          "(SELECT *, (LAG(fare_stage, 1) OVER (PARTITION BY operator, route ORDER BY tran_time)) AS prev_stage FROM dummy_trans_tt.test_one_ran_samp ",
-                                         " WHERE fare_stage={min_stage} OR fare_stage={max_stage} ORDER BY tran_time) ends ",
+                                         " WHERE (fare_stage={min_stage} OR fare_stage={max_stage}) ",
+                                         " ORDER BY tran_time) ends ",
                                          " WHERE ends.fare_stage!=ends.prev_stage;"))
 
 average_journey_time
