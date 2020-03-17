@@ -405,18 +405,18 @@ string_stage_window <- "00:03:00"
 #bus at that time of day
 
 int_journey_window <- 20
-int_stage_window <- 3
+int_stage_window <- 5
 
 #what about using coalesce
 
-over_string <- "operator, route"
+over_strings <- c("operator", "route")
 
-order_string <- "tran_time"
+tran_string <- "tran_time"
 
 sql_test <- dbGetQuery(con, glue("SELECT *, ",
                                  "CASE WHEN ",
                                  "dir1.new_direction IS NOT NULL THEN dir1.new_direction ",
-                                 "WHEN dir1.new_direction IS NULL AND (dir1.fare_stage=(LAG(dir1.fare_stage, 1) OVER dir1w)) AND ((dir1.tran_time-(LAG(dir1.tran_time, 1) OVER dir1w)<INTERVAL '{int_journey_window} minutes')) THEN (LAG(dir1.new_direction, 1) OVER dir1w) ",
+                                 "WHEN dir1.new_direction IS NULL AND (dir1.fare_stage=(LAG(dir1.fare_stage, 1) OVER dir1w)) AND ((dir1.tran_time-(LAG(dir1.tran_time, 1) OVER dir1w)<INTERVAL '{int_stage_window} minutes')) THEN (LAG(dir1.new_direction, 1) OVER dir1w) ",
                                  " END AS direction ",
                                  "FROM ",
                                  "(SELECT *, ", 
@@ -434,28 +434,17 @@ sql_test <- dbGetQuery(con, glue("SELECT *, ",
                                  ") THEN 'in' ",
                                  "END AS new_direction ",
                                  "FROM dummy_trans_tt.test_one_ran_samp ",
-                                 "WINDOW w AS (PARTITION BY {over_string} ORDER BY {order_string}) ",
+                                 "WINDOW w AS (PARTITION BY {over_strings[1]}, {over_strings[2]} ORDER BY {order_string}) ",
                                  ") dir1 ",
-                                 "WINDOW dir1w AS (PARTITION BY dir1.operator, dir1.route ORDER BY dir1.tran_time);"))
+                                 "WINDOW dir1w AS (PARTITION BY dir1.{over_strings[1]}, dir1.{over_strings[2]} ORDER BY dir1.{order_string});"))
 
-#try the nearest other line version
-sql_test <- dbGetQuery(con, glue("SELECT *, ",
-                                 "CASE WHEN ",
-                                 "tran_time<->"))
+#there is still an error if a fare stage has the same tran time, but can be put in the wrong order 
+#and then creates a little error
+#what about changing it so that in the second run it addresses this problem?
+#look at the order of transactions as they run through, so if you have 
+#five in a row wihtin a give time you make another run of it
 
+#so the answer would be to make a test that finds the previous min_stage 
+#for each fare_stage, that is within a sensible journey time window, say 1 hr
 
-sql_test <- dbGetQuery(con, glue("SELECT *, ", 
-                                 "CASE WHEN ",
-                                 "(((fare_stage>LAG(fare_stage, 1)) AND (tran_time-LAG(tran_time, 1)<'{string_journey_window}') AND (tran_time-LAG(tran_time, 1)<LEAD(tran_time, 1)-tran_time)) ", 
-                                 "OR ((fare_stage<LEAD(fare_stage, 1)) AND (LEAD(tran_time, 1)-tran_time<'{string_journey_window}') AND (tran_time-LAG(tran_time, 1)>LEAD(tran_time, 1)-tran_time)) ",
-                                 "OR ((fare_stage<LEAD(fare_stage, 2)) AND (fare_stage==LEAD(fare_stage, 1)) AND (LEAD(tran_time, 2)-tran_time<'{string_journey_window}') AND (tran_time-LAG(tran_time, 1)>LEAD(tran_time, 2)-tran_time)) ",
-                                 "OR ((fare_stage<LEAD(fare_stage, 3)) AND (fare_stage==LEAD(fare_stage, 1)) AND (fare_stage==LEAD(fare_stage, 2)) AND (LEAD(tran_time, 3)-tran_time<'{string_journey_window}') AND (tran_time-LAG(tran_time, 1)>LEAD(tran_time, 3)-tran_time)) ) ",
-                                 "THEN 'out' END AS new_direction ",
-                                 "FROM dummy_trans_tt.test_one_ran_samp;"))
-
-
-
-lapply(sql_test, class)
-
-#so the <-> operator is "nearest"
-#use that in conjunction with
+#
