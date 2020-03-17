@@ -389,7 +389,7 @@ dt_test <- dt_sample[, new_dir:=ifelse(((tran_time<shift(tran_time+same_journey_
 #turn fare stage back to numeric before
 test_one$fare_stage <- as.integer(test_one$fare_stage)
 
-dbWriteTable(con, c("dummy_trans_tt", "test_one_ran_samp"), value = test_one, row.names=FALSE, overwrite=TRUE)
+#dbWriteTable(con, c("dummy_trans_tt", "test_one_ran_samp"), value = test_one, row.names=FALSE, overwrite=TRUE)
 
 #now that the table is created try the SQL version
 
@@ -398,7 +398,63 @@ dbWriteTable(con, c("dummy_trans_tt", "test_one_ran_samp"), value = test_one, ro
 string_journey_window <- "00:20:00"
 string_stage_window <- "00:03:00"
 
-sql_test <- dbGetQuery(con, glue("SELECT *, CASE WHEN (((fare_stage>LAG(fare_stage, 1)) AND (tran_time-LAG(tran_time, 1)<'{string_journey_window}') AND (tran_time-LAG(tran_time, 1)<LEAD(tran_time, 1)-tran_time)) OR ((fare_stage<LEAD(fare_stage, 1)) AND (LEAD(tran_time, 1)-tran_time<'{string_journey_window}') AND (tran_time-LAG(tran_time, 1)<LEAD(tran_time, 1)-tran_time))) THEN 'out' FROM dummy_trans_tt.test_one_ran_samp;"))
+#what about calculating same journey window on the average time from 
+#maximum to minimum stage for the given time of day for that dow
+
+#calculate how long on average it is from max to min for that 
+#bus at that time of day
+
+int_journey_window <- 20
+int_stage_window <- 3
+
+#what about using coalesce
+
+over_string <- "operator, route"
+
+order_string <- "tran_time"
+
+sql_test <- dbGetQuery(con, glue("SELECT *, ",
+                                 "CASE WHEN ",
+                                 "dir1.new_direction IS NOT NULL THEN dir1.new_direction ",
+                                 "WHEN dir1.new_direction IS NULL AND (dir1.fare_stage=(LAG(dir1.fare_stage, 1) OVER dir1w)) AND ((dir1.tran_time-(LAG(dir1.tran_time, 1) OVER dir1w)<INTERVAL '{int_journey_window} minutes')) THEN (LAG(dir1.new_direction, 1) OVER dir1w) ",
+                                 " END AS direction ",
+                                 "FROM ",
+                                 "(SELECT *, ", 
+                                 "CASE WHEN ( ",
+                                 "((fare_stage>LAG(fare_stage, 1) OVER w) AND (tran_time-(LAG(tran_time, 1) OVER w)<INTERVAL '{int_journey_window} minutes') AND ((tran_time-(LAG(tran_time, 1) OVER w)<=((LEAD(tran_time, 1) OVER w)-tran_time)) OR (fare_stage=LEAD(fare_stage,1) OVER w)) ) ",
+                                 "OR ((fare_stage<(LEAD(fare_stage, 1) OVER w)) AND ((LEAD(tran_time, 1) OVER w)-tran_time<INTERVAL '{int_journey_window} minutes') AND (((tran_time-(LAG(tran_time, 1) OVER w)>(LEAD(tran_time, 1) OVER w)-tran_time)) OR (LAG(fare_stage, 1) OVER w IS NULL) OR (fare_stage=(LAG(fare_stage, 1) OVER w))) ) ",
+                                 "OR ((fare_stage<(LEAD(fare_stage, 2) OVER w)) AND (fare_stage=(LEAD(fare_stage, 1) OVER w)) AND ((LEAD(tran_time, 2) OVER w)-tran_time<INTERVAL '{int_journey_window} minutes') AND (((tran_time-(LAG(tran_time, 1) OVER w))>((LEAD(tran_time, 2) OVER w)-tran_time)) OR (LAG(fare_stage, 1) OVER w IS NULL) OR (fare_stage=(LAG(fare_stage, 1) OVER w))) ) ",
+                                 "OR ((fare_stage<(LEAD(fare_stage, 3) OVER w)) AND (fare_stage=(LEAD(fare_stage, 1) OVER w)) AND (fare_stage=(LEAD(fare_stage, 2) OVER w)) AND ((LEAD(tran_time, 3) OVER w)-tran_time<INTERVAL '{int_journey_window} minutes') AND (((tran_time-(LAG(tran_time, 1) OVER w))>((LEAD(tran_time, 3)  OVER w)-tran_time)) OR (LAG(fare_stage, 1) OVER w IS NULL) OR (fare_stage=(LAG(fare_stage, 1) OVER w))) ) ",
+                                 ") THEN 'out' ",
+                                 "WHEN (",
+                                 "((fare_stage<LAG(fare_stage, 1) OVER w) AND (tran_time-(LAG(tran_time, 1) OVER w)<INTERVAL '{int_journey_window} minutes') AND ((tran_time-(LAG(tran_time, 1) OVER w)<=((LEAD(tran_time, 1) OVER w)-tran_time)) OR (fare_stage=LEAD(fare_stage,1) OVER w)) ) ",
+                                 "OR ((fare_stage>(LEAD(fare_stage, 1) OVER w)) AND ((LEAD(tran_time, 1) OVER w)-tran_time<INTERVAL '{int_journey_window} minutes') AND (((tran_time-(LAG(tran_time, 1) OVER w)>(LEAD(tran_time, 1) OVER w)-tran_time)) OR (LAG(fare_stage, 1) OVER w IS NULL) OR (fare_stage=(LAG(fare_stage, 1) OVER w))) ) ",
+                                 "OR ((fare_stage>(LEAD(fare_stage, 2) OVER w)) AND (fare_stage=(LEAD(fare_stage, 1) OVER w)) AND ((LEAD(tran_time, 2) OVER w)-tran_time<INTERVAL '{int_journey_window} minutes') AND (((tran_time-(LAG(tran_time, 1) OVER w))>((LEAD(tran_time, 2) OVER w)-tran_time)) OR (LAG(fare_stage, 1) OVER w IS NULL) OR (fare_stage=(LAG(fare_stage, 1) OVER w))) ) ",
+                                 "OR ((fare_stage>(LEAD(fare_stage, 3) OVER w)) AND (fare_stage=(LEAD(fare_stage, 1) OVER w)) AND (fare_stage=(LEAD(fare_stage, 2) OVER w)) AND ((LEAD(tran_time, 3) OVER w)-tran_time<INTERVAL '{int_journey_window} minutes') AND (((tran_time-(LAG(tran_time, 1) OVER w))>((LEAD(tran_time, 3) OVER w)-tran_time)) OR (LAG(fare_stage, 1) OVER w IS NULL) OR (fare_stage=(LAG(fare_stage, 1) OVER w)) ) ) ",
+                                 ") THEN 'in' ",
+                                 "END AS new_direction ",
+                                 "FROM dummy_trans_tt.test_one_ran_samp ",
+                                 "WINDOW w AS (PARTITION BY {over_string} ORDER BY {order_string}) ",
+                                 ") dir1 ",
+                                 "WINDOW dir1w AS (PARTITION BY dir1.operator, dir1.route ORDER BY dir1.tran_time);"))
+
+#try the nearest other line version
+sql_test <- dbGetQuery(con, glue("SELECT *, ",
+                                 "CASE WHEN ",
+                                 "tran_time<->"))
+
+
+sql_test <- dbGetQuery(con, glue("SELECT *, ", 
+                                 "CASE WHEN ",
+                                 "(((fare_stage>LAG(fare_stage, 1)) AND (tran_time-LAG(tran_time, 1)<'{string_journey_window}') AND (tran_time-LAG(tran_time, 1)<LEAD(tran_time, 1)-tran_time)) ", 
+                                 "OR ((fare_stage<LEAD(fare_stage, 1)) AND (LEAD(tran_time, 1)-tran_time<'{string_journey_window}') AND (tran_time-LAG(tran_time, 1)>LEAD(tran_time, 1)-tran_time)) ",
+                                 "OR ((fare_stage<LEAD(fare_stage, 2)) AND (fare_stage==LEAD(fare_stage, 1)) AND (LEAD(tran_time, 2)-tran_time<'{string_journey_window}') AND (tran_time-LAG(tran_time, 1)>LEAD(tran_time, 2)-tran_time)) ",
+                                 "OR ((fare_stage<LEAD(fare_stage, 3)) AND (fare_stage==LEAD(fare_stage, 1)) AND (fare_stage==LEAD(fare_stage, 2)) AND (LEAD(tran_time, 3)-tran_time<'{string_journey_window}') AND (tran_time-LAG(tran_time, 1)>LEAD(tran_time, 3)-tran_time)) ) ",
+                                 "THEN 'out' END AS new_direction ",
+                                 "FROM dummy_trans_tt.test_one_ran_samp;"))
+
+
+
 lapply(sql_test, class)
 
 #so the <-> operator is "nearest"
