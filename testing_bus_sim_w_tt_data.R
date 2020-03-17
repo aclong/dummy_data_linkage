@@ -404,6 +404,22 @@ string_stage_window <- "00:03:00"
 #calculate how long on average it is from max to min for that 
 #bus at that time of day
 
+#how to do it
+
+min_stage <- dbGetQuery(con, glue("SELECT MIN(fare_stage) FROM dummy_trans_tt.test_one_ran_samp;"))
+max_stage <- dbGetQuery(con, glue("SELECT MAX(fare_stage) FROM dummy_trans_tt.test_one_ran_samp;"))
+
+#now us them in another query
+
+#will need another set of parameters for this window
+
+avg_journey_time <- dbGetQuery(con, glue("SELECT ends.fare_stage, CASE WHEN ends.fare_stage={min_stage} THEN 'in' WHEN ends.fare_stage={max_stage} THEN 'out' END AS direction, ends.tran_time-(LAG(ends.tran_time, 1) OVER (PARTITION BY ends.operator, ends.route ORDER BY ends.tran_time)) FROM",
+                                         "(SELECT *, (LAG(fare_stage, 1) OVER (PARTITION BY operator, route ORDER BY tran_time)) AS prev_stage FROM dummy_trans_tt.test_one_ran_samp ",
+                                         " WHERE fare_stage={min_stage} OR fare_stage={max_stage} ORDER BY tran_time) ends ",
+                                         " WHERE ends.fare_stage!=ends.prev_stage;"))
+
+average_journey_time
+
 int_journey_window <- 20
 int_stage_window <- 5
 
@@ -446,5 +462,8 @@ sql_test <- dbGetQuery(con, glue("SELECT *, ",
 
 #so the answer would be to make a test that finds the previous min_stage 
 #for each fare_stage, that is within a sensible journey time window, say 1 hr
+
+#with actual transactions can use the record ID along with the transaction time 
+#to get the proper order and avoid mis-ordering
 
 #
