@@ -4,3 +4,4 @@
 *.Rproj.user
 *.Renviron
 .Rproj.user
+*.RData
