@@ -5,3 +5,6 @@
 *.Renviron
 .Rproj.user
 *.RData
+rough_working.R
+old_versions.R
+Untitled*.R
