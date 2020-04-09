@@ -80,4 +80,55 @@ operator_route_list <- dbGetQuery(con, glue("SELECT operator, route FROM timetab
 
 #need unique bus numbers for each route for each day
 
-#now start the big loop
+#now start the big date loop
+for(i in 1:length(dates)){
+  
+  #take the date
+  this_date <- dates[i]
+  
+  #get the day of week
+  #wday runs 1 to 7 with one being sunday so have change with lubridate week start
+  this_dow <- wday(dates[i], week_start = getOption("lubridate.week.start", 1))
+  
+  #now a loop to cycle through the operators and routes list
+  for(j in 1:nrow(operator_route_list)){
+    
+    #get the operator and route numbers
+    this_operator <- operator_route_list$operator[j]
+    
+    this_route <- operator_route_list$route[j]
+    
+    #now get all the results back from the tt for this date/dow
+    all_journeys <- setDT(dbGetQuery(con, glue("SELECT start_date, last_date, type, journey_scheduled, id, direction, arrive, depart, n AS stop_series ",
+                                         " FROM timetables.tt_all WHERE",
+                                         " start_date<='{this_date}' AND last_date>='{this_date}' ",
+                                         " AND SUBSTRING(dow FROM {this_dow} FOR 1)='1'",
+                                         " AND operator='{this_operator}' AND route='{this_route}';")))
+    
+    #now only continue if all_journeys exists
+    if(nrow(all_journeys)>0){
+      
+      #check for overlapping periods of start of end date
+      start_dates <- unique(all_journeys$start_date)
+      
+      #loop through them
+      for(period_no in 1:length(start_dates)){
+        
+        #get the tt_period
+        tt_period <- start_dates[period_no]
+        
+        #subset data by period
+        period_sub <- all_journeys[start_date==tt_period,,][order(journey_scheduled, id, arrive)]
+        
+        # get last "arrive" of every journey
+        
+        last_arrives <- period_sub[,.(id, journey_schduled, max(arrive)),by=.(id, journey_schduled)]
+        
+        
+      }
+      
+    }
+    
+  }
+  
+}
