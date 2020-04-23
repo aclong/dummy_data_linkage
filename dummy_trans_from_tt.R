@@ -54,11 +54,16 @@ end_date <- "2015-11-30"
 #generate list
 dates <- seq(as.Date(start_date), as.Date(end_date), by="days")
 
+#############
+#test_with_subset
+dates <- dates[5:6]
+
 #load in the packages needed
 library(data.table)
 library(RPostgreSQL)
 library(lubridate)
 library(glue)
+library(stringi)
 
 #create db connection
 #load in the env variables
@@ -75,8 +80,31 @@ con <- dbConnect(dbDriver("PostgreSQL"),
                  user = user_name, 
                  password = password_name)
 
+#add the table name and schema name
+dummy_data_schema <- "dummy_trans_tt"
+dummy_data_table <- "oct_2015_dummy"
+
+#remove table if it exists
+if(dbExistsTable(con,c(dummy_data_schema, dummy_data_table))==TRUE){
+  dbGetQuery(con, glue("DROP TABLE {dummy_data_schema}.{dummy_data_table};"))
+}
+
+#create new table to load results into
+dbGetQuery(con, glue("CREATE TABLE {dummy_data_schema}.{dummy_data_table} ",
+                     " ( ",
+                     " operator_code varchar(10), ",
+                     " route_no varchar(10), ",
+                     " tt_direction varchar(1), ",
+                     " transaction_datetime TIMESTAMP, ",
+                     " fare_stage int, ",
+                     " machine_id varchar(20)",
+                     " ) ;"))
+
 #get all operators/routes from this period
 operator_route_list <- dbGetQuery(con, glue("SELECT operator, route FROM timetables.tt_all WHERE start_date<'{end_date}' AND last_date>'{start_date}' GROUP BY operator, route ORDER BY operator, route;"))
+
+#start with 
+operator_route_list <- operator_route_list[438:439,]
 
 #need unique bus numbers for each route for each day
 
@@ -98,12 +126,16 @@ for(i in 1:length(dates)){
     
     this_route <- operator_route_list$route[j]
     
-    #now get all the results back from the tt for this date/dow
-    all_journeys <- setDT(dbGetQuery(con, glue("SELECT start_date, last_date, type, journey_scheduled, id, direction, arrive, depart, n AS stop_series ",
-                                         " FROM timetables.tt_all WHERE",
-                                         " start_date<='{this_date}' AND last_date>='{this_date}' ",
-                                         " AND SUBSTRING(dow FROM {this_dow} FOR 1)='1'",
-                                         " AND operator='{this_operator}' AND route='{this_route}';")))
+    #look at the other request
+    all_journeys <- setDT(dbGetQuery(con, glue("SELECT start_date, last_date, type, TO_TIMESTAMP(CONCAT('{this_date} ',journey_scheduled), 'YYYY-MM-DD HH24:MI:SS') AS journey_scheduled, id, direction, TO_TIMESTAMP(CONCAT('{this_date} ',arrive), 'YYYY-MM-DD HH24:MI:SS') AS arrive, ROUND(n/3) AS fare_stage ",
+                                               " FROM timetables.tt_all WHERE",
+                                               " start_date<='{this_date}' AND last_date>='{this_date}' ",
+                                               " AND SUBSTRING(dow FROM {this_dow} FOR 1)='1' ",
+                                               " AND operator='{this_operator}' AND route='{this_route}';")))
+    
+    
+    #only use latest timetable period by finding max start date
+    all_journeys <- all_journeys[start_date==max(start_date),]
     
     #now only continue if all_journeys exists
     if(nrow(all_journeys)>0){
@@ -121,8 +153,94 @@ for(i in 1:length(dates)){
         period_sub <- all_journeys[start_date==tt_period,,][order(journey_scheduled, id, arrive)]
         
         # get last "arrive" of every journey
+        last_arrives <- period_sub[,.(last_arrive=max(arrive)), by=.(journey_scheduled, id, direction)]
         
-        last_arrives <- period_sub[,.(id, journey_schduled, max(arrive)),by=.(id, journey_schduled)]
+        #this is the self joining/journey creation bit
+        
+        #get end of outward journeys and beginning of inward journeys 
+        #and match with rolling join
+        out_journey_ends <- last_arrives[direction=="O",.(id, direction, journey_scheduled, last_arrive, join_time=last_arrive),][order(join_time)]
+        in_journey_starts <-  last_arrives[direction=="I",.(id, direction, journey_scheduled, last_arrive, join_time=journey_scheduled),][order(join_time)]
+        out_first_join <- out_journey_ends[in_journey_starts, on='join_time', roll=Inf,  mult="first"][order(journey_scheduled)]
+        
+        #then rolling join inbound to next outbound journey start
+        out_journey_starts <- last_arrives[direction=="O",.(id, direction, journey_scheduled, last_arrive, join_time=journey_scheduled),][,join_time_two:=journey_scheduled,][order(join_time)]
+        out_first_join_end <- out_first_join[,join_time_two:=i.last_arrive,][order(join_time_two)]
+        new_join <- out_first_join_end[out_journey_starts,on='join_time_two', roll=Inf, mult='first']
+        
+        #then get only the ids from the series
+        only_ids <- na.omit(new_join[, grep("\\id\\b", names(new_join)), with = FALSE])
+        
+        #create blank variables for storing the output
+        #used id list
+        used_ids <- c()
+        
+        #full journeys list
+        full_journeys <- list()
+        
+        #for loop for linking ids of sequences together
+        
+        ########################
+        #this technique only starts with outbaound
+        
+        for(start_id in unique(only_ids$id)){
+          
+          #go through all the IDs not in the original list
+          if(start_id %in% used_ids==FALSE){
+            
+            #get row as vector
+            journey_ids <- as.matrix(only_ids[only_ids$id==start_id])[1,]
+            
+            #add first id to used_ids list so it doesn't get used again
+            used_ids <- append(used_ids, journey_ids)
+            
+            #keep going when the next exists
+            while(nrow(only_ids[only_ids$id==journey_ids[length(journey_ids)]])>0){
+              
+              new_ids <-as.matrix(only_ids[only_ids$id==journey_ids[length(journey_ids)]])[1,]
+              
+              #find and add next row to current journey
+              journey_ids <- append(journey_ids, new_ids)
+              
+              #add to used ids
+              used_ids <- append(used_ids, new_ids)
+            }
+            
+            # now export the journey as a vector
+            # or this is where you put in the dbQuery using the IDs to 
+            # get a complete "machine journey" for the day
+            #print(journey_ids)
+            #print(used_ids)
+            
+            journey_ids <- unique(journey_ids)
+            
+            #myList[[length(myList)+1]] <- list(sample(1:3))
+            full_journeys[[length(full_journeys)+1]] <- journey_ids
+            
+          }
+        }
+        
+        #now you need to select all the journeys from the all_journeys dataset
+        #assign a "machine_id" and upload to a table
+        
+        machine_ids <- stri_rand_strings(length(full_journeys), 20, pattern = "[a-z0-9]")
+        
+        for(i in length(full_journeys)){
+          
+          #get machine_id
+          mach_id <- machine_ids[i]
+          
+          #get vector of ids for this journey
+          id_list <- full_journeys[[i]]
+          
+          #subset the all journeys dt by this vector and add machine_id column
+          this_mach_journeys <- all_journeys[id %in% id_list][,.(operator_code=this_operator, route_no=this_route, tt_direction=direction, transaction_datetime=arrive, fare_stage, machine_id=mach_id),]
+          
+          #send to db
+          dbWriteTable(con, c(dummy_data_schema, dummy_data_table), this_mach_journeys, row.names=FALSE, append=TRUE)
+          
+          
+        }
         
         
       }
