@@ -251,3 +251,11 @@ for(i in 1:length(dates)){
   }
   
 }
+
+
+############################
+#Indexes to make it run faster
+
+dbGetQuery(con, glue("CREATE INDEX ON {dummy_data_schema}.{dummy_data_table} (operator_code);"))
+dbGetQuery(con, glue("CREATE INDEX ON {dummy_data_schema}.{dummy_data_table} (route_no);"))
+dbGetQuery(con, glue("CREATE INDEX ON {dummy_data_schema}.{dummy_data_table} (machine_id);"))
