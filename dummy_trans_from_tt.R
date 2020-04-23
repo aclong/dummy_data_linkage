@@ -54,10 +54,6 @@ end_date <- "2015-11-30"
 #generate list
 dates <- seq(as.Date(start_date), as.Date(end_date), by="days")
 
-#############
-#test_with_subset
-dates <- dates[5:6]
-
 #load in the packages needed
 library(data.table)
 library(RPostgreSQL)
@@ -103,8 +99,6 @@ dbGetQuery(con, glue("CREATE TABLE {dummy_data_schema}.{dummy_data_table} ",
 #get all operators/routes from this period
 operator_route_list <- dbGetQuery(con, glue("SELECT operator, route FROM timetables.tt_all WHERE start_date<'{end_date}' AND last_date>'{start_date}' GROUP BY operator, route ORDER BY operator, route;"))
 
-#start with 
-operator_route_list <- operator_route_list[438:439,]
 
 #need unique bus numbers for each route for each day
 
@@ -223,24 +217,31 @@ for(i in 1:length(dates)){
         #now you need to select all the journeys from the all_journeys dataset
         #assign a "machine_id" and upload to a table
         
-        machine_ids <- stri_rand_strings(length(full_journeys), 20, pattern = "[a-z0-9]")
-        
-        for(i in length(full_journeys)){
+        if(length(full_journeys)>0){
           
-          #get machine_id
-          mach_id <- machine_ids[i]
+          machine_ids <- stri_rand_strings(length(full_journeys), 20, pattern = "[a-z0-9]")
           
-          #get vector of ids for this journey
-          id_list <- full_journeys[[i]]
-          
-          #subset the all journeys dt by this vector and add machine_id column
-          this_mach_journeys <- all_journeys[id %in% id_list][,.(operator_code=this_operator, route_no=this_route, tt_direction=direction, transaction_datetime=arrive, fare_stage, machine_id=mach_id),]
-          
-          #send to db
-          dbWriteTable(con, c(dummy_data_schema, dummy_data_table), this_mach_journeys, row.names=FALSE, append=TRUE)
+          for(i in length(full_journeys)){
+            
+            #get machine_id
+            mach_id <- machine_ids[i]
+            
+            #get vector of ids for this journey
+            id_list <- full_journeys[[i]]
+            
+            #subset the all journeys dt by this vector and add machine_id column
+            this_mach_journeys <- all_journeys[id %in% id_list][,.(operator_code=this_operator, route_no=this_route, tt_direction=direction, transaction_datetime=arrive, fare_stage, machine_id=mach_id),]
+            
+            #send to db
+            dbWriteTable(con, c(dummy_data_schema, dummy_data_table), this_mach_journeys, row.names=FALSE, append=TRUE)
+            
+            
+          }
           
           
         }
+        
+        
         
         
       }
