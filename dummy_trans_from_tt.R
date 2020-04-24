@@ -259,3 +259,20 @@ for(i in 1:length(dates)){
 dbGetQuery(con, glue("CREATE INDEX ON {dummy_data_schema}.{dummy_data_table} (operator_code);"))
 dbGetQuery(con, glue("CREATE INDEX ON {dummy_data_schema}.{dummy_data_table} (route_no);"))
 dbGetQuery(con, glue("CREATE INDEX ON {dummy_data_schema}.{dummy_data_table} (machine_id);"))
+
+
+###########################
+#need to create a sampled version
+count_rows <- dbGetQuery(con, glue("SELECT COUNT(*) FROM {dummy_data_schema}.{dummy_data_table};"))
+
+sample_no <- round(.2*count_rows[1,1])
+
+dbGetQuery(con, glue("CREATE TABLE {dummy_data_schema}.{dummy_data_table}_sample AS ",
+                     "SELECT * FROM {dummy_data_schema}.{dummy_data_table} ",
+                     " ORDER BY random() ",
+                     " LIMIT {sample_no};"))
+
+#put some indexes on this one
+dbGetQuery(con, glue("CREATE INDEX ON {dummy_data_schema}.{dummy_data_table}_sample (operator_code);"))
+dbGetQuery(con, glue("CREATE INDEX ON {dummy_data_schema}.{dummy_data_table}_sample (route_no);"))
+dbGetQuery(con, glue("CREATE INDEX ON {dummy_data_schema}.{dummy_data_table}_sample (machine_id);"))
