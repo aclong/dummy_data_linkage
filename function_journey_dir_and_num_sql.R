@@ -8,6 +8,83 @@ library(lubridate)
 
 #now make the for loop a function
 
+#here is the initial sql command
+#needs to be edited so that it groups by operator, route, machine_id and anything else?
+
+#first get all the info from the db table on what is there
+#load in the packages needed
+library(data.table)
+library(RPostgreSQL)
+library(lubridate)
+library(glue)
+library(stringi)
+
+#create db connection
+#load in the env variables
+db_name=Sys.getenv("DBNAME")
+host_name=Sys.getenv("HOSTNAME")
+user_name=Sys.getenv("USERNAME")
+password_name=Sys.getenv("PASSWORDNAME")
+
+
+#set up a connection
+con <- dbConnect(dbDriver("PostgreSQL"), 
+                 dbname = db_name, 
+                 host = host_name, 
+                 user = user_name, 
+                 password = password_name)
+
+#add the table name and schema name
+dummy_data_schema <- "dummy_trans_tt"
+dummy_data_table <- "oct_2015_dummy"
+
+#strings for the window
+over_string_list <- c("operator", "route")
+
+plain_over_strings <- paste(over_strings, collapse=", ")
+
+dir1_over_strings <- paste(paste0("dir1.",over_strings), collapse=", ")
+
+order_string <- "tran_time"
+
+#the actual command
+sql_test <- dbGetQuery(con, glue("SELECT *, ",
+                                 "CASE WHEN ",
+                                 "dir1.new_direction IS NOT NULL THEN dir1.new_direction ",
+                                 "WHEN dir1.new_direction IS NULL AND (dir1.fare_stage=(LAG(dir1.fare_stage, 1) OVER dir1w)) AND ((dir1.tran_time-(LAG(dir1.tran_time, 1) OVER dir1w)<INTERVAL '{int_stage_window} minutes')) THEN (LAG(dir1.new_direction, 1) OVER dir1w) ",
+                                 " END AS direction ",
+                                 "FROM ",
+                                 "(SELECT *, ", 
+                                 "CASE WHEN ( ",
+                                 "((fare_stage>LAG(fare_stage, 1) OVER w) ",
+                                 "AND (tran_time-(LAG(tran_time, 1) OVER w)<INTERVAL '{int_journey_window} minutes') ",
+                                 "AND ((tran_time-(LAG(tran_time, 1) OVER w)<=((LEAD(tran_time, 1) OVER w)-tran_time)) OR (fare_stage=LEAD(fare_stage,1) OVER w) OR ((LEAD(fare_stage,1) OVER w) IS NULL)) ) ",
+                                 "OR ((fare_stage<(LEAD(fare_stage, 1) OVER w)) ",
+                                 "AND ((LEAD(tran_time, 1) OVER w)-tran_time<INTERVAL '{int_journey_window} minutes') ",
+                                 "AND (((tran_time-(LAG(tran_time, 1) OVER w)>(LEAD(tran_time, 1) OVER w)-tran_time)) OR (LAG(fare_stage, 1) OVER w IS NULL) OR (fare_stage=(LAG(fare_stage, 1) OVER w))) ) ",
+                                 "OR ((fare_stage<(LEAD(fare_stage, 2) OVER w)) ",
+                                 "AND (fare_stage=(LEAD(fare_stage, 1) OVER w)) ",
+                                 "AND ((LEAD(tran_time, 2) OVER w)-tran_time<INTERVAL '{int_journey_window} minutes') ",
+                                 "AND (((tran_time-(LAG(tran_time, 1) OVER w))>((LEAD(tran_time, 2) OVER w)-tran_time)) OR (LAG(fare_stage, 1) OVER w IS NULL) OR (fare_stage=(LAG(fare_stage, 1) OVER w))) ) ",
+                                 "OR ((fare_stage<(LEAD(fare_stage, 3) OVER w)) ",
+                                 "AND (fare_stage=(LEAD(fare_stage, 1) OVER w)) ",
+                                 "AND (fare_stage=(LEAD(fare_stage, 2) OVER w)) ",
+                                 "AND ((LEAD(tran_time, 3) OVER w)-tran_time<INTERVAL '{int_journey_window} minutes') ",
+                                 "AND (((tran_time-(LAG(tran_time, 1) OVER w))>((LEAD(tran_time, 3)  OVER w)-tran_time)) OR (LAG(fare_stage, 1) OVER w IS NULL) OR (fare_stage=(LAG(fare_stage, 1) OVER w))) ) ",
+                                 ") THEN 'out' ",
+                                 "WHEN (",
+                                 "((fare_stage<LAG(fare_stage, 1) OVER w) AND (tran_time-(LAG(tran_time, 1) OVER w)<INTERVAL '{int_journey_window} minutes') AND ((tran_time-(LAG(tran_time, 1) OVER w)<=((LEAD(tran_time, 1) OVER w)-tran_time)) OR (fare_stage=LEAD(fare_stage,1) OVER w) OR ((LEAD(fare_stage,1) OVER w) IS NULL)) ) ",
+                                 "OR ((fare_stage>(LEAD(fare_stage, 1) OVER w)) AND ((LEAD(tran_time, 1) OVER w)-tran_time<INTERVAL '{int_journey_window} minutes') AND (((tran_time-(LAG(tran_time, 1) OVER w)>(LEAD(tran_time, 1) OVER w)-tran_time)) OR (LAG(fare_stage, 1) OVER w IS NULL) OR (fare_stage=(LAG(fare_stage, 1) OVER w))) ) ",
+                                 "OR ((fare_stage>(LEAD(fare_stage, 2) OVER w)) AND (fare_stage=(LEAD(fare_stage, 1) OVER w)) AND ((LEAD(tran_time, 2) OVER w)-tran_time<INTERVAL '{int_journey_window} minutes') AND (((tran_time-(LAG(tran_time, 1) OVER w))>((LEAD(tran_time, 2) OVER w)-tran_time)) OR (LAG(fare_stage, 1) OVER w IS NULL) OR (fare_stage=(LAG(fare_stage, 1) OVER w))) ) ",
+                                 "OR ((fare_stage>(LEAD(fare_stage, 3) OVER w)) AND (fare_stage=(LEAD(fare_stage, 1) OVER w)) AND (fare_stage=(LEAD(fare_stage, 2) OVER w)) AND ((LEAD(tran_time, 3) OVER w)-tran_time<INTERVAL '{int_journey_window} minutes') AND (((tran_time-(LAG(tran_time, 1) OVER w))>((LEAD(tran_time, 3) OVER w)-tran_time)) OR (LAG(fare_stage, 1) OVER w IS NULL) OR (fare_stage=(LAG(fare_stage, 1) OVER w)) ) ) ",
+                                 ") THEN 'in' ",
+                                 "END AS new_direction ",
+                                 "FROM dummy_trans_tt.test_one_ran_samp ",
+                                 "WINDOW w AS (PARTITION BY {plain_over_strings} ORDER BY {order_string}) ",
+                                 ") dir1 ",
+                                 "WINDOW dir1w AS (PARTITION BY dir1.{dir1_over_strings} ORDER BY dir1.{order_string});"))
+
+
 assign_dir <- function(input_data_table, same_journey_mins, same_stage_mins, max_stage, min_stage){
   
   # input data table must have the columns: 

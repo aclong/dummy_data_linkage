@@ -432,6 +432,10 @@ int_stage_window <- 5
 
 #what about using coalesce
 
+
+######################
+#need to edit this so it can go in the sql file
+
 over_strings <- c("operator", "route")
 
 tran_string <- "tran_time"
