@@ -1,23 +1,9 @@
-#write function version here
-library(RPostgreSQL)
-library(data.table)
-library(lubridate)
 
-#need to rewrite this one to use the SQL version. 
-#Sort out when have generated a generic version from the testing file
-
-#now make the for loop a function
-
-#here is the initial sql command
-#needs to be edited so that it groups by operator, route, machine_id and anything else?
-
-#first get all the info from the db table on what is there
 #load in the packages needed
 library(data.table)
 library(RPostgreSQL)
 library(lubridate)
 library(glue)
-library(stringi)
 
 #create db connection
 #load in the env variables
@@ -42,7 +28,7 @@ dummy_data_table <- "oct_2015_dummy_sample"
 new_table_name <- paste0(dummy_data_table, "_linked")
 
 #get the list of cols in the table
-column_names <- colnames(dbGetQuery(con, glue("SELECT * FROM {dummy_data_schema}.{dummy_data_table} LIMIT 1;")))
+#column_names <- colnames(dbGetQuery(con, glue("SELECT * FROM {dummy_data_schema}.{dummy_data_table} LIMIT 1;")))
 
 
 #strings for the window creating all grouoping and ordering
@@ -97,3 +83,9 @@ dbGetQuery(con, glue("CREATE TABLE {dummy_data_schema}.{new_table_name} AS ",
                                  ") dir1 ",
                                  "WINDOW dir1w AS (PARTITION BY {dir1_over_strings} ORDER BY dir1.{tran_string});"))
 
+#make some indexes on it
+dbGetQuery(con, glue("CREATE INDEX ON {dummy_data_schema}.{new_table_name} (operator_code);"))
+dbGetQuery(con, glue("CREATE INDEX ON {dummy_data_schema}.{new_table_name} (route_no);"))
+dbGetQuery(con, glue("CREATE INDEX ON {dummy_data_schema}.{new_table_name} (machine_id);"))
+
+dbGetQuery(con, glue("VACUUM ANALYZE {dummy_data_schema}.{new_table_name};"))
