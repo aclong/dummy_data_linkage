@@ -17,7 +17,9 @@
 #https://stackoverflow.com/questions/41352042/synchronise-and-plot-two-timeseries-data-sets-in-r
 
 #pretty comperehensive workththrough 
+#THESE ARE THE ONES TO USE AND LOOK THROUGH
 #here: https://stats.stackexchange.com/questions/31666/how-can-i-align-synchronize-two-signals
+#https://stats.stackexchange.com/questions/130843/how-to-synchronize-two-signals-using-fft-in-r?rq=1
 
 #mmeasuring synchrony: https://towardsdatascience.com/four-ways-to-quantify-synchrony-between-time-series-data-b99136c4a9c9
 

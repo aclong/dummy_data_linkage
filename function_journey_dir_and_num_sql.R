@@ -93,6 +93,16 @@ dbGetQuery(con, glue("VACUUM ANALYZE {dummy_data_schema}.{new_table_name};"))
 #make another column which stores how far through the fare/stage sequence the transaction is
 #so this would be max(fare_stage)/fare_stage for each operator, route, direction
 
-proportion_window <- c("operator_code", "route_no", "direction", glue("date_trunc('day', {tran_string})"))
+#by doing by day/route/operator/direction/day and not using machine numbers 
+#you make sure to get the full range of fare stages possible
+
+
+proportion_window <- c(glue("date_trunc('day', {tran_string})","operator_code", "route_no", "direction"))
 
 proportion_w_string <- paste(proportion_window, collapse=", ")
+
+#write the query to get this new column of the proportion
+
+dbGetQuery(con, glue("UPDATE {dummy_data_schema}.{new_table_name} ",
+                     "SET journey_proportion=((max(fare_stage)/fare_stage) OVER w) ",
+                     "WINDOW w AS (PARTITION BY {proportion_w_string});"))
