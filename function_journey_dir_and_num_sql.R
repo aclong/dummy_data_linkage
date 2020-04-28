@@ -89,3 +89,10 @@ dbGetQuery(con, glue("CREATE INDEX ON {dummy_data_schema}.{new_table_name} (rout
 dbGetQuery(con, glue("CREATE INDEX ON {dummy_data_schema}.{new_table_name} (machine_id);"))
 
 dbGetQuery(con, glue("VACUUM ANALYZE {dummy_data_schema}.{new_table_name};"))
+
+#make another column which stores how far through the fare/stage sequence the transaction is
+#so this would be max(fare_stage)/fare_stage for each operator, route, direction
+
+proportion_window <- c("operator_code", "route_no", "direction", glue("date_trunc('day', {tran_string})"))
+
+proportion_w_string <- paste(proportion_window, collapse=", ")
