@@ -97,12 +97,23 @@ dbGetQuery(con, glue("VACUUM ANALYZE {dummy_data_schema}.{new_table_name};"))
 #you make sure to get the full range of fare stages possible
 
 
-proportion_window <- c(glue("date_trunc('day', {tran_string})","operator_code", "route_no", "direction"))
+proportion_window <- c(glue("date_trunc('day', {tran_string})"),"operator_code", "route_no", "direction")
 
 proportion_w_string <- paste(proportion_window, collapse=", ")
 
 #write the query to get this new column of the proportion
 
 dbGetQuery(con, glue("UPDATE {dummy_data_schema}.{new_table_name} ",
-                     "SET journey_proportion=((max(fare_stage)/fare_stage) OVER w) ",
+                     "SET journey_proportion=(fare_stage::float/(max(fare_stage::float) OVER w)) FROM {dummy_data_schema}.{new_table_name} ",
                      "WINDOW w AS (PARTITION BY {proportion_w_string});"))
+
+dbGetQuery(con, glue("ALTER TABLE {dummy_data_schema}.{new_table_name} ",
+                     "ADD COLUMN journey_proportion float;"))
+
+#getting an error with places where the max fare stage is 0.
+#find out how many of these there are
+dbGetQuery(con, glue("UPDATE {dummy_data_schema}.{new_table_name} ",
+                     "SET journey_proportion=(new_tab.fare_stage::float/new_tab.max_fare_stage::float) ",
+                     "FROM (SELECT fare_stage, ",
+                     "(max(fare_stage) OVER (PARTITION BY {proportion_w_string})) AS max_fare_stage ",
+                     "FROM {dummy_data_schema}.{new_table_name}) new_tab;"))
