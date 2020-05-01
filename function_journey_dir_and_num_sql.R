@@ -90,6 +90,11 @@ dbGetQuery(con, glue("CREATE INDEX ON {dummy_data_schema}.{new_table_name} (mach
 
 dbGetQuery(con, glue("VACUUM ANALYZE {dummy_data_schema}.{new_table_name};"))
 
+##################
+#add a unique id column
+dbGetQuery(con, glue("ALTER TABLE {dummy_data_schema}.{new_table_name} ",
+                     "ADD COLUMN record_id serial not null primary key;"))
+
 #make another column which stores how far through the fare/stage sequence the transaction is
 #so this would be max(fare_stage)/fare_stage for each operator, route, direction
 
@@ -103,17 +108,26 @@ proportion_w_string <- paste(proportion_window, collapse=", ")
 
 #write the query to get this new column of the proportion
 
-dbGetQuery(con, glue("UPDATE {dummy_data_schema}.{new_table_name} ",
-                     "SET journey_proportion=(fare_stage::float/(max(fare_stage::float) OVER w)) FROM {dummy_data_schema}.{new_table_name} ",
-                     "WINDOW w AS (PARTITION BY {proportion_w_string});"))
+#create column
+dbGetQuery(con, glue("ALTER TABLE {dummy_data_schema}.{new_table_name} ",
+                     "DROP COLUMN journey_proportion;"))
 
+#fill column
 dbGetQuery(con, glue("ALTER TABLE {dummy_data_schema}.{new_table_name} ",
                      "ADD COLUMN journey_proportion float;"))
 
-#getting an error with places where the max fare stage is 0.
-#find out how many of these there are
-dbGetQuery(con, glue("UPDATE {dummy_data_schema}.{new_table_name} ",
-                     "SET journey_proportion=(new_tab.fare_stage::float/new_tab.max_fare_stage::float) ",
-                     "FROM (SELECT fare_stage, ",
-                     "(max(fare_stage) OVER (PARTITION BY {proportion_w_string})) AS max_fare_stage ",
-                     "FROM {dummy_data_schema}.{new_table_name}) new_tab;"))
+#try a version on just one day and operator to see if it actually works
+
+#add new column to whole table version
+Sys.time()
+system.time(
+dbGetQuery(con, glue("UPDATE {dummy_data_schema}.{new_table_name} old_tab ",
+                     "SET journey_proportion=(new_tab.fare_stage_proportion) ",
+                     "FROM (SELECT record_id, CASE WHEN direction='out' AND (max(fare_stage) OVER w)!=0 THEN fare_stage::float/(max(fare_stage) OVER w)::float ",
+                     "WHEN direction='in' AND (max(fare_stage) OVER w)!=0 THEN (((max(fare_stage) OVER w)::float-fare_stage::float)/(max(fare_stage) OVER w)::float) ",
+                     "ELSE 'NaN' END AS fare_stage_proportion FROM {dummy_data_schema}.{new_table_name} ",
+                     "WINDOW w AS (PARTITION BY {proportion_w_string})) new_tab WHERE new_tab.record_id=old_tab.record_id;"))
+)
+Sys.time()
+
+#took ~7 minutes
