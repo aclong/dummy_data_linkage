@@ -88,24 +88,26 @@ dbGetQuery(con, glue("CREATE TABLE {dummy_data_schema}.{new_table_name} AS ",
                                  ") dir1 ",
                                  "WINDOW dir1w AS (PARTITION BY {dir1_over_strings} ORDER BY dir1.{tran_string});"))
 
-
+###################################
 #adding a version with a journey_number assigner
 
 #create a sequence to assign the journey numbers from
 
+dbGetQuery(con, "DROP SEQUENCE IF EXISTS journey_sequence;")
+
 dbGetQuery(con, glue("CREATE SEQUENCE journey_sequence ",
-                     "INCREMENT 1",
+                     "INCREMENT 1 ",
                      "MINVALUE 1 ",
                      "MAXVALUE 100 ",
-                     "START 1 ",
+                     "START 2 ",
                      "CYCLE ;"))
 
-dbGetQuery(con, glue("CREATE TABLE {dummy_data_schema}.{new_table_name} AS ",
+dbGetQuery(con, glue("CREATE TABLE {dummy_data_schema}.{new_table_name}_journey_no AS ",
                      "SELECT dir2.*, ",
                      "CASE WHEN dir2.direction!=(LAG(dir2.direction,1) OVER dir2w) ",
                      "OR (dir2.{tran_string}-LAG(dir2.{tran_string},1))>INTERVAL '{int_journey_window} minutes' ",
                      "THEN nextval(journey_sequence) ",
-                     "ELSE currval(journey_sequence) END AS journey_number ", 
+                     "ELSE COALESCE(currval(journey_sequence), 1) END AS journey_number ", 
                      "FROM ",
                      "(SELECT *, ",
                      "CASE WHEN ",
@@ -145,7 +147,7 @@ dbGetQuery(con, glue("CREATE TABLE {dummy_data_schema}.{new_table_name} AS ",
                      "WINDOW w AS (PARTITION BY {plain_over_strings} ORDER BY {tran_string}) ",
                      ") dir1 ",
                      "WINDOW dir1w AS (PARTITION BY {dir1_over_strings} ORDER BY dir1.{tran_string})) dir2 ",
-                     "WINDON dir2w AS (PARTITION BY {dir2_over_strings} ORDER BY dir2.{tran_string});"))
+                     "WINDOW dir2w AS (PARTITION BY {dir2_over_strings} ORDER BY dir2.{tran_string});"))
 
 
 
