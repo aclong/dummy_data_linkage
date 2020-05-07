@@ -68,3 +68,28 @@ machine_ids <- dbGetQuery(con, glue("SELECT DISTINCT machine_id FROM {dummy_data
 #there are 10k transactions in this set
 
 one_machine_transaction_data <- dbGetQuery(con, glue("SELECT * FROM {dummy_data_schema}.{new_table_name}_journey_no_test WHERE machine_id='{machine_ids[1,1]}';"))
+
+#current directions are a bit messed up so let's focus on only outbound journeys
+#how many distinct journey ids are there in this list?
+journey_nums <- unique(one_machine_transaction_data$journey_number)
+
+#turns out there are 14
+#is 100 enough for the trip counter?
+
+#seems like it might be
+
+#get one journey out
+one_journey <- one_machine_transaction_data[one_machine_transaction_data$journey_number==journey_nums[1],]
+
+#what date info shall I extract?
+#any journey that overlaps any part of this
+
+min_datetime <- min(one_journey$transaction_datetime)
+
+max_datetime <- max(one_journey$transaction_datetime)
+
+#now get all timetable journeys that overlp with this
+
+#WHERE start_date<'{end_date}' AND last_date>'{start_date}'
+
+dbGetQuery(con, glue("SELECT * FROM timetables.tt_all WHERE start_date<='{date(max_datetime)}' AND last_date>='{date(min_datetime)}' AND journey_scheduled<='{format(min_datetime, '%H:%M:%S')}' AND arrive;"))
