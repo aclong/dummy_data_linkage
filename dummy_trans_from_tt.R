@@ -230,7 +230,17 @@ for(i in 1:length(dates)){
             id_list <- full_journeys[[i]]
             
             #subset the all journeys dt by this vector and add machine_id column
-            this_mach_journeys <- all_journeys[id %in% id_list][,.(operator_code=this_operator, route_no=this_route, tt_direction=direction, transaction_datetime=arrive, fare_stage, machine_id=mach_id),]
+            this_mach_journeys <- all_journeys[id %in% id_list][,.(trip_id=id, operator_code=this_operator, route_no=this_route, tt_direction=direction, transaction_datetime=arrive, fare_stage, machine_id=mach_id),]
+            
+            #add in bit to reverse inbound fare stage order
+            #for loop running through all inbound journeys?
+            inbound_ids <- unique(this_mach_journeys$trip_id[this_mach_journeys$tt_direction=="I"])
+            
+            for(i in 1:length(inbound_ids)){
+              rev_stages <- rev(this_mach_journeys$fare_stage[this_mach_journeys$trip_id==inbound_ids[i]])
+                
+              this_mach_journeys$fare_stage[this_mach_journeys$trip_id==inbound_ids[i]] <- rev_stages
+            }
             
             #send to db
             dbWriteTable(con, c(dummy_data_schema, dummy_data_table), this_mach_journeys, row.names=FALSE, append=TRUE)
