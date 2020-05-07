@@ -84,12 +84,42 @@ one_journey <- one_machine_transaction_data[one_machine_transaction_data$journey
 #what date info shall I extract?
 #any journey that overlaps any part of this
 
-min_datetime <- min(one_journey$transaction_datetime)
+min_datetime <- min(one_journey$transaction_datetime)+hours(1)
 
-max_datetime <- max(one_journey$transaction_datetime)
+max_datetime <- max(one_journey$transaction_datetime)+hours(1)
+
+#get dow info
+min_dow <- wday(min_datetime, week_start = getOption("lubridate.week.start", 1))
+
+max_dow <- wday(max_datetime, week_start = getOption("lubridate.week.start", 1))
+
+#route and operator info
+operator_code <- one_journey$operator_code[1]
+route_no <- one_journey$route_no[1]
+
+if(one_journey$direction[1]=="in"){
+  tt_direction <- "I"
+}else if(one_journey$direction[1]=="out"){
+  tt_direction <- "O"
+}
 
 #now get all timetable journeys that overlp with this
+#might add an hour either side to make sure it's big enough
 
 #WHERE start_date<'{end_date}' AND last_date>'{start_date}'
 
-dbGetQuery(con, glue("SELECT * FROM timetables.tt_all WHERE start_date<='{format(max_datetime, '%Y-%m-%d')}' AND last_date>='{format(min_datetime, '%Y-%m-%d')}' AND journey_scheduled<='{format(min_datetime, '%H:%M:%S')}' AND arrive;"))
+# could get an average of journey times from the timetbale to create the window
+# for getting the testing journeys from
+# 
+
+colnames(dbGetQuery(con, glue("SELECT * FROM timetables.tt_all LIMIT 1;")))
+
+tt_testers <- dbGetQuery(con, glue("SELECT * FROM timetables.tt_all ",
+                                   "WHERE start_date<='{format(max_datetime, '%Y-%m-%d')}' ",
+                                   "AND operator='{operator_code}' ",
+                                   "AND route='{route_no}' ",
+                                   "AND direction='{tt_direction}' ",
+                                   "AND last_date>='{format(min_datetime, '%Y-%m-%d')}' ",
+                                   "AND (SUBSTRING(dow FROM {min_dow} FOR 1)='1' OR SUBSTRING(dow FROM {max_dow} FOR 1)='1') ",
+                                   "AND (journey_scheduled BETWEEN '{format(min_datetime, '%H:%M:%S')}' AND '{format(max_datetime, '%H:%M:%S')}') ",
+                                   ";"))
