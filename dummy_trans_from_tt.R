@@ -83,6 +83,8 @@ dummy_data_table <- "oct_2015_dummy"
 #remove table if it exists
 if(dbExistsTable(con,c(dummy_data_schema, dummy_data_table))==TRUE){
   dbGetQuery(con, glue("DROP TABLE {dummy_data_schema}.{dummy_data_table};"))
+  
+  print("dropping old table")
 }
 
 #create new table to load results into
@@ -96,11 +98,14 @@ dbGetQuery(con, glue("CREATE TABLE {dummy_data_schema}.{dummy_data_table} ",
                      " machine_id varchar(20)",
                      " ) ;"))
 
+print("created new table")
 #get all operators/routes from this period
 operator_route_list <- dbGetQuery(con, glue("SELECT operator, route FROM timetables.tt_all WHERE start_date<'{end_date}' AND last_date>'{start_date}' GROUP BY operator, route ORDER BY operator, route;"))
 
 
 #need unique bus numbers for each route for each day
+
+print(glue("{Sys.time()} starting big date loop"))
 
 #now start the big date loop
 for(i in 1:length(dates)){
@@ -236,11 +241,15 @@ for(i in 1:length(dates)){
             #for loop running through all inbound journeys?
             inbound_ids <- unique(this_mach_journeys$trip_id[this_mach_journeys$tt_direction=="I"])
             
+            #loop through the journey IDs and reverse the fare stages
             for(i in 1:length(inbound_ids)){
               rev_stages <- rev(this_mach_journeys$fare_stage[this_mach_journeys$trip_id==inbound_ids[i]])
                 
               this_mach_journeys$fare_stage[this_mach_journeys$trip_id==inbound_ids[i]] <- rev_stages
             }
+            
+            #remove trip_id column
+            this_mach_journeys <- this_mach_journeys[,trip_id:=NULL]
             
             #send to db
             dbWriteTable(con, c(dummy_data_schema, dummy_data_table), this_mach_journeys, row.names=FALSE, append=TRUE)
@@ -262,6 +271,7 @@ for(i in 1:length(dates)){
   
 }
 
+print(glue("{Sys.time()} finished big date loop"))
 
 ############################
 #Indexes to make it run faster
@@ -270,6 +280,7 @@ dbGetQuery(con, glue("CREATE INDEX ON {dummy_data_schema}.{dummy_data_table} (op
 dbGetQuery(con, glue("CREATE INDEX ON {dummy_data_schema}.{dummy_data_table} (route_no);"))
 dbGetQuery(con, glue("CREATE INDEX ON {dummy_data_schema}.{dummy_data_table} (machine_id);"))
 
+print(glue("{Sys.time()} finished adding indexes"))
 
 ###########################
 #need to create a sampled version
@@ -277,10 +288,20 @@ count_rows <- dbGetQuery(con, glue("SELECT COUNT(*) FROM {dummy_data_schema}.{du
 
 sample_no <- round(.2*count_rows[1,1])
 
+#remove table if it exists
+if(dbExistsTable(con,c(dummy_data_schema, glue("{dummy_data_table}_sample")))==TRUE){
+  dbGetQuery(con, glue("DROP TABLE {dummy_data_schema}.{dummy_data_table}_sample;"))
+  
+  print("dropping old table")
+}
+
+#make new table as sample
 dbGetQuery(con, glue("CREATE TABLE {dummy_data_schema}.{dummy_data_table}_sample AS ",
                      "SELECT * FROM {dummy_data_schema}.{dummy_data_table} ",
                      " ORDER BY random() ",
                      " LIMIT {sample_no};"))
+
+print(glue("{Sys.time()} finished making sample table and starting indexes"))
 
 #put some indexes on this one
 dbGetQuery(con, glue("CREATE INDEX ON {dummy_data_schema}.{dummy_data_table}_sample (operator_code);"))
