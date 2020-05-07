@@ -235,7 +235,7 @@ for(i in 1:length(dates)){
             id_list <- full_journeys[[i]]
             
             #subset the all journeys dt by this vector and add machine_id column
-            this_mach_journeys <- all_journeys[id %in% id_list][,.(trip_id=id, operator_code=this_operator, route_no=this_route, tt_direction=direction, transaction_datetime=arrive, fare_stage, machine_id=mach_id),]
+            this_mach_journeys <- all_journeys[id %in% id_list][,.(trip_id=id, operator_code=this_operator, route_no=this_route, tt_direction=direction, transaction_datetime=arrive, fare_stage, machine_id=mach_id),][order(transaction_datetime)]
             
             #add in bit to reverse inbound fare stage order
             #for loop running through all inbound journeys?
