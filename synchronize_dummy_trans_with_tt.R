@@ -92,4 +92,4 @@ max_datetime <- max(one_journey$transaction_datetime)
 
 #WHERE start_date<'{end_date}' AND last_date>'{start_date}'
 
-dbGetQuery(con, glue("SELECT * FROM timetables.tt_all WHERE start_date<='{date(max_datetime)}' AND last_date>='{date(min_datetime)}' AND journey_scheduled<='{format(min_datetime, '%H:%M:%S')}' AND arrive;"))
+dbGetQuery(con, glue("SELECT * FROM timetables.tt_all WHERE start_date<='{format(max_datetime, '%Y-%m-%d')}' AND last_date>='{format(min_datetime, '%Y-%m-%d')}' AND journey_scheduled<='{format(min_datetime, '%H:%M:%S')}' AND arrive;"))
