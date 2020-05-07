@@ -32,3 +32,39 @@
 
 #get the stop/fare_stage number as a proportion of the complete journey
 #this would then make them more comparable
+
+#what are the packages i need?
+library(RPostgreSQL)
+library(data.table)
+library(glue)
+library(lubridate)
+
+#run the connections
+#create db connection
+#load in the env variables
+db_name=Sys.getenv("DBNAME")
+host_name=Sys.getenv("HOSTNAME")
+user_name=Sys.getenv("USERNAME")
+password_name=Sys.getenv("PASSWORDNAME")
+
+
+#set up a connection
+con <- dbConnect(dbDriver("PostgreSQL"), 
+                 dbname = db_name, 
+                 host = host_name, 
+                 user = user_name, 
+                 password = password_name)
+
+#now to load in the two datasets
+
+#first get the "transaction data"
+#do I still need the date/time counter as I do this?
+
+#can loop through journeys for each machine ID and compare them againse the timetable
+
+machine_ids <- dbGetQuery(con, glue("SELECT DISTINCT machine_id FROM {dummy_data_schema}.{new_table_name}_journey_no_test;"))
+
+
+#there are 10k transactions in this set
+
+one_machine_transaction_data <- dbGetQuery(con, glue("SELECT * FROM {dummy_data_schema}.{new_table_name}_journey_no_test WHERE machine_id='{machine_ids[1,1]}';"))
