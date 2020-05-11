@@ -130,15 +130,15 @@ dbGetQuery(con, glue("CREATE TABLE {dummy_data_schema}.{new_table_name}_journey_
 
 
 #make some indexes on it
-dbGetQuery(con, glue("CREATE INDEX ON {dummy_data_schema}.{new_table_name} (operator_code);"))
-dbGetQuery(con, glue("CREATE INDEX ON {dummy_data_schema}.{new_table_name} (route_no);"))
-dbGetQuery(con, glue("CREATE INDEX ON {dummy_data_schema}.{new_table_name} (machine_id);"))
+dbGetQuery(con, glue("CREATE INDEX ON {dummy_data_schema}.{new_table_name}_journey_no (operator_code);"))
+dbGetQuery(con, glue("CREATE INDEX ON {dummy_data_schema}.{new_table_name}_journey_no (route_no);"))
+dbGetQuery(con, glue("CREATE INDEX ON {dummy_data_schema}.{new_table_name}_journey_no (machine_id);"))
 
-dbGetQuery(con, glue("VACUUM ANALYZE {dummy_data_schema}.{new_table_name};"))
+dbGetQuery(con, glue("VACUUM ANALYZE {dummy_data_schema}.{new_table_name}_journey_no;"))
 
 ##################
 #add a unique id column
-dbGetQuery(con, glue("ALTER TABLE {dummy_data_schema}.{new_table_name} ",
+dbGetQuery(con, glue("ALTER TABLE {dummy_data_schema}.{new_table_name}_journey_no ",
                      "ADD COLUMN record_id serial not null primary key;"))
 
 #make another column which stores how far through the fare/stage sequence the transaction is
@@ -155,11 +155,11 @@ proportion_w_string <- paste(proportion_window, collapse=", ")
 #write the query to get this new column of the proportion
 
 #create column
-dbGetQuery(con, glue("ALTER TABLE {dummy_data_schema}.{new_table_name} ",
+dbGetQuery(con, glue("ALTER TABLE {dummy_data_schema}.{new_table_name}_journey_no ",
                      "DROP COLUMN journey_proportion;"))
 
 #fill column
-dbGetQuery(con, glue("ALTER TABLE {dummy_data_schema}.{new_table_name} ",
+dbGetQuery(con, glue("ALTER TABLE {dummy_data_schema}.{new_table_name}_journey_no ",
                      "ADD COLUMN journey_proportion float;"))
 
 #try a version on just one day and operator to see if it actually works
@@ -167,11 +167,11 @@ dbGetQuery(con, glue("ALTER TABLE {dummy_data_schema}.{new_table_name} ",
 #add new column to whole table version
 Sys.time()
 system.time(
-dbGetQuery(con, glue("UPDATE {dummy_data_schema}.{new_table_name} old_tab ",
+dbGetQuery(con, glue("UPDATE {dummy_data_schema}.{new_table_name}_journey_no old_tab ",
                      "SET journey_proportion=(new_tab.fare_stage_proportion) ",
                      "FROM (SELECT record_id, CASE WHEN direction='out' AND (max(fare_stage) OVER w)!=0 THEN fare_stage::float/(max(fare_stage) OVER w)::float ",
                      "WHEN direction='in' AND (max(fare_stage) OVER w)!=0 THEN (((max(fare_stage) OVER w)::float-fare_stage::float)/(max(fare_stage) OVER w)::float) ",
-                     "ELSE 'NaN' END AS fare_stage_proportion FROM {dummy_data_schema}.{new_table_name} ",
+                     "ELSE 'NaN' END AS fare_stage_proportion FROM {dummy_data_schema}.{new_table_name}_journey_no ",
                      "WINDOW w AS (PARTITION BY {proportion_w_string})) new_tab WHERE new_tab.record_id=old_tab.record_id;"))
 )
 Sys.time()
