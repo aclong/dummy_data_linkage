@@ -39,6 +39,8 @@ library(data.table)
 library(glue)
 library(lubridate)
 
+
+
 #run the connections
 #create db connection
 #load in the env variables
@@ -80,6 +82,8 @@ journey_nums <- unique(one_machine_transaction_data$journey_number)
 
 #get one journey out
 one_journey <- one_machine_transaction_data[one_machine_transaction_data$journey_number==journey_nums[1],]
+
+one_journey <- setDT(one_journey)
 
 #sopme errors showing up where the first of the "next" journey is instead assigned to the "current" one
 
@@ -137,3 +141,31 @@ unique(tt_testers$journey_scheduled)
 #create a proportion of journey column
 tt_testers$journey_proportion <- tt_testers$n/max(tt_testers$n)
 
+#do some fun scatter plots
+
+library(hrbrthemes)
+library(ggplot2)
+library(RColorBrewer)
+
+
+ggplot(tt_testers, aes(x=arrive, y=journey_proportion, col=journey_scheduled)) +
+  theme_ipsum_rc() +
+  geom_point() +
+  scale_colour_ft(name = "Journey Scheduled")
+
+ggplot(one_journey, aes(x=transaction_datetime, y=journey_proportion, col=journey_number)) +
+  theme_ipsum_rc() +
+  geom_point()
+
+#make a compsite version of the tweo datasets so you can see what it looks like
+
+tt_tester_sub <- tt_testers[, .(journey_proportion, journey_scheduled, time=arrive),]
+
+one_journey_sub <- one_journey[,.(journey_proportion, journey_scheduled=journey_number, time=strftime(transaction_datetime, format = "%H:%M:%S")),]
+
+tt_tran_comp <- rbind(tt_tester_sub, one_journey_sub)
+
+
+ggplot(tt_tran_comp, aes(x=time, y=journey_proportion, col=journey_scheduled)) +
+  theme_ipsum_rc() +
+  geom_point()
