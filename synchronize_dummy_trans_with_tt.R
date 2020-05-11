@@ -62,12 +62,12 @@ con <- dbConnect(dbDriver("PostgreSQL"),
 
 #can loop through journeys for each machine ID and compare them againse the timetable
 
-machine_ids <- dbGetQuery(con, glue("SELECT DISTINCT machine_id FROM {dummy_data_schema}.{new_table_name}_journey_no_test;"))
+machine_ids <- dbGetQuery(con, glue("SELECT DISTINCT machine_id FROM {dummy_data_schema}.{new_table_name}_journey_no LIMIT 200;"))
 
 
 #there are 10k transactions in this set
 
-one_machine_transaction_data <- dbGetQuery(con, glue("SELECT * FROM {dummy_data_schema}.{new_table_name}_journey_no_test WHERE machine_id='{machine_ids[1,1]}';"))
+one_machine_transaction_data <- dbGetQuery(con, glue("SELECT * FROM {dummy_data_schema}.{new_table_name}_journey_no WHERE machine_id='{machine_ids[1,1]}' ORDER BY {tran_string};"))
 
 #current directions are a bit messed up so let's focus on only outbound journeys
 #how many distinct journey ids are there in this list?
@@ -80,6 +80,8 @@ journey_nums <- unique(one_machine_transaction_data$journey_number)
 
 #get one journey out
 one_journey <- one_machine_transaction_data[one_machine_transaction_data$journey_number==journey_nums[1],]
+
+#sopme errors showing up where the first of the "next" journey is instead assigned to the "current" one
 
 #what date info shall I extract?
 #any journey that overlaps any part of this
@@ -114,7 +116,7 @@ if(one_journey$direction[1]=="in"){
 
 colnames(dbGetQuery(con, glue("SELECT * FROM timetables.tt_all LIMIT 1;")))
 
-tt_testers <- dbGetQuery(con, glue("SELECT * FROM timetables.tt_all ",
+tt_testers <- setDT(dbGetQuery(con, glue("SELECT * FROM timetables.tt_all ",
                                    "WHERE start_date<='{format(max_datetime, '%Y-%m-%d')}' ",
                                    "AND operator='{operator_code}' ",
                                    "AND route='{route_no}' ",
@@ -122,4 +124,10 @@ tt_testers <- dbGetQuery(con, glue("SELECT * FROM timetables.tt_all ",
                                    "AND last_date>='{format(min_datetime, '%Y-%m-%d')}' ",
                                    "AND (SUBSTRING(dow FROM {min_dow} FOR 1)='1' OR SUBSTRING(dow FROM {max_dow} FOR 1)='1') ",
                                    "AND (journey_scheduled BETWEEN '{format(min_datetime, '%H:%M:%S')}' AND '{format(max_datetime, '%H:%M:%S')}') ",
-                                   ";"))
+                                   ";")))
+
+#get only the latest possible timetable
+tt_testers <- tt_testers[start_date==max(start_date),]
+
+#now there are 28 possible journeys
+
