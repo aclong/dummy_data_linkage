@@ -86,7 +86,7 @@ one_journey <- one_machine_transaction_data[one_machine_transaction_data$journey
 #what date info shall I extract?
 #any journey that overlaps any part of this
 
-min_datetime <- min(one_journey$transaction_datetime)+hours(1)
+min_datetime <- min(one_journey$transaction_datetime)-hours(1)
 
 max_datetime <- max(one_journey$transaction_datetime)+hours(1)
 
@@ -129,5 +129,11 @@ tt_testers <- setDT(dbGetQuery(con, glue("SELECT * FROM timetables.tt_all ",
 #get only the latest possible timetable
 tt_testers <- tt_testers[start_date==max(start_date),]
 
-#now there are 28 possible journeys
+#chesk the number of journeys found
+
+unique(tt_testers$journey_scheduled)
+#there are four journeys about half hours apart starting staring at about 6 till one startinat 7 40
+
+#create a proportion of journey column
+tt_testers$journey_proportion <- tt_testers$n/max(tt_testers$n)
 
