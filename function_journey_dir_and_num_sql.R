@@ -27,6 +27,14 @@ dummy_data_table <- "oct_2015_dummy_sample"
 #table to create
 new_table_name <- paste0(dummy_data_table, "_linked")
 
+#check if it exists and if so delete
+#remove table if it exists
+if(dbExistsTable(con,c(dummy_data_schema, new_table_name))==TRUE){
+  dbGetQuery(con, glue("DROP TABLE {dummy_data_schema}.{new_table_name};"))
+  
+  print("dropping old table")
+}
+
 #get the list of cols in the table
 #column_names <- colnames(dbGetQuery(con, glue("SELECT * FROM {dummy_data_schema}.{dummy_data_table} LIMIT 1;")))
 
@@ -46,48 +54,6 @@ tran_string <- "transaction_datetime"
 int_journey_window <- 20
 int_stage_window <- 5
 
-
-#the actual command
-dbGetQuery(con, glue("CREATE TABLE {dummy_data_schema}.{new_table_name} AS ",
-                                 "SELECT *, ",
-                                 "CASE WHEN ",
-                                 "dir1.new_direction IS NOT NULL THEN dir1.new_direction ",
-                                 "WHEN dir1.new_direction IS NULL ",
-                                 " AND (dir1.fare_stage=(LAG(dir1.fare_stage, 1) OVER dir1w)) ",
-                                 " AND ((dir1.{tran_string}-(LAG(dir1.{tran_string}, 1) OVER dir1w)<INTERVAL '{int_stage_window} minutes')) ",
-                                 " THEN (LAG(dir1.new_direction, 1) OVER dir1w) ",
-                                 " END AS direction ",
-                                 "FROM ",
-                                 "(SELECT *, ", 
-                                 "CASE WHEN ( ",
-                                 "((fare_stage>LAG(fare_stage, 1) OVER w) ",
-                                 "AND ({tran_string}-(LAG({tran_string}, 1) OVER w)<INTERVAL '{int_journey_window} minutes') ",
-                                 "AND (({tran_string}-(LAG({tran_string}, 1) OVER w)<=((LEAD({tran_string}, 1) OVER w)-{tran_string})) OR (fare_stage=LEAD(fare_stage,1) OVER w) OR ((LEAD(fare_stage,1) OVER w) IS NULL)) ) ",
-                                 "OR ((fare_stage<(LEAD(fare_stage, 1) OVER w)) ",
-                                 "AND ((LEAD({tran_string}, 1) OVER w)-{tran_string}<INTERVAL '{int_journey_window} minutes') ",
-                                 "AND ((({tran_string}-(LAG({tran_string}, 1) OVER w)>(LEAD({tran_string}, 1) OVER w)-{tran_string})) OR (LAG(fare_stage, 1) OVER w IS NULL) OR (fare_stage=(LAG(fare_stage, 1) OVER w))) ) ",
-                                 "OR ((fare_stage<(LEAD(fare_stage, 2) OVER w)) ",
-                                 "AND (fare_stage=(LEAD(fare_stage, 1) OVER w)) ",
-                                 "AND ((LEAD({tran_string}, 2) OVER w)-{tran_string}<INTERVAL '{int_journey_window} minutes') ",
-                                 "AND ((({tran_string}-(LAG({tran_string}, 1) OVER w))>((LEAD({tran_string}, 2) OVER w)-{tran_string})) OR (LAG(fare_stage, 1) OVER w IS NULL) OR (fare_stage=(LAG(fare_stage, 1) OVER w))) ) ",
-                                 "OR ((fare_stage<(LEAD(fare_stage, 3) OVER w)) ",
-                                 "AND (fare_stage=(LEAD(fare_stage, 1) OVER w)) ",
-                                 "AND (fare_stage=(LEAD(fare_stage, 2) OVER w)) ",
-                                 "AND ((LEAD({tran_string}, 3) OVER w)-{tran_string}<INTERVAL '{int_journey_window} minutes') ",
-                                 "AND ((({tran_string}-(LAG({tran_string}, 1) OVER w))>((LEAD({tran_string}, 3)  OVER w)-{tran_string})) OR (LAG(fare_stage, 1) OVER w IS NULL) OR (fare_stage=(LAG(fare_stage, 1) OVER w))) ) ",
-                                 ") THEN 'out' ",
-                                 "WHEN (",
-                                 "((fare_stage<LAG(fare_stage, 1) OVER w) AND ({tran_string}-(LAG({tran_string}, 1) OVER w)<INTERVAL '{int_journey_window} minutes') AND (({tran_string}-(LAG({tran_string}, 1) OVER w)<=((LEAD({tran_string}, 1) OVER w)-{tran_string})) OR (fare_stage=LEAD(fare_stage,1) OVER w) OR ((LEAD(fare_stage,1) OVER w) IS NULL)) ) ",
-                                 "OR ((fare_stage>(LEAD(fare_stage, 1) OVER w)) AND ((LEAD({tran_string}, 1) OVER w)-{tran_string}<INTERVAL '{int_journey_window} minutes') AND ((({tran_string}-(LAG({tran_string}, 1) OVER w)>(LEAD({tran_string}, 1) OVER w)-{tran_string})) OR (LAG(fare_stage, 1) OVER w IS NULL) OR (fare_stage=(LAG(fare_stage, 1) OVER w))) ) ",
-                                 "OR ((fare_stage>(LEAD(fare_stage, 2) OVER w)) AND (fare_stage=(LEAD(fare_stage, 1) OVER w)) AND ((LEAD({tran_string}, 2) OVER w)-{tran_string}<INTERVAL '{int_journey_window} minutes') AND ((({tran_string}-(LAG({tran_string}, 1) OVER w))>((LEAD({tran_string}, 2) OVER w)-{tran_string})) OR (LAG(fare_stage, 1) OVER w IS NULL) OR (fare_stage=(LAG(fare_stage, 1) OVER w))) ) ",
-                                 "OR ((fare_stage>(LEAD(fare_stage, 3) OVER w)) AND (fare_stage=(LEAD(fare_stage, 1) OVER w)) AND (fare_stage=(LEAD(fare_stage, 2) OVER w)) AND ((LEAD({tran_string}, 3) OVER w)-{tran_string}<INTERVAL '{int_journey_window} minutes') AND ((({tran_string}-(LAG({tran_string}, 1) OVER w))>((LEAD({tran_string}, 3) OVER w)-{tran_string})) OR (LAG(fare_stage, 1) OVER w IS NULL) OR (fare_stage=(LAG(fare_stage, 1) OVER w)) ) ) ",
-                                 ") THEN 'in' ",
-                                 "END AS new_direction ",
-                                 "FROM {dummy_data_schema}.{dummy_data_table} ",
-                                 "WINDOW w AS (PARTITION BY {plain_over_strings} ORDER BY {tran_string}) ",
-                                 ") dir1 ",
-                                 "WINDOW dir1w AS (PARTITION BY {dir1_over_strings} ORDER BY dir1.{tran_string});"))
-
 ###################################
 #adding a version with a journey_number assigner
 
@@ -98,16 +64,28 @@ dbGetQuery(con, "DROP SEQUENCE IF EXISTS journey_sequence;")
 dbGetQuery(con, glue("CREATE SEQUENCE journey_sequence ",
                      "INCREMENT 1 ",
                      "MINVALUE 1 ",
-                     "MAXVALUE 100 ",
+                     "MAXVALUE 999 ",
                      "START 2 ",
                      "CYCLE ;"))
 
+
+#remove table if it exists
+if(dbExistsTable(con,c(dummy_data_schema, paste0(new_table_name,"_journey_no")))==TRUE){
+  dbGetQuery(con, glue("DROP TABLE {dummy_data_schema}.{new_table_name}_journey_no;"))
+  
+  print("dropping old table")
+}
+
+#initiate the journey sequence with
+dbGetQuery(con, "SELECT nextval('journey_sequence');")
+
+#make the query
 dbGetQuery(con, glue("CREATE TABLE {dummy_data_schema}.{new_table_name}_journey_no AS ",
                      "SELECT dir2.*, ",
                      "CASE WHEN dir2.direction!=(LAG(dir2.direction,1) OVER dir2w) ",
-                     "OR (dir2.{tran_string}-LAG(dir2.{tran_string},1))>INTERVAL '{int_journey_window} minutes' ",
-                     "THEN nextval(journey_sequence) ",
-                     "ELSE COALESCE(currval(journey_sequence), 1) END AS journey_number ", 
+                     "OR (dir2.{tran_string}-LAG(dir2.{tran_string},1) OVER dir2w)>INTERVAL '{int_journey_window} minutes' ",
+                     "THEN nextval('journey_sequence') ",
+                     "ELSE COALESCE(currval('journey_sequence'),1) END AS journey_number ", 
                      "FROM ",
                      "(SELECT *, ",
                      "CASE WHEN ",

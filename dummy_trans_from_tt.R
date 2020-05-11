@@ -69,7 +69,7 @@ user_name=Sys.getenv("USERNAME")
 password_name=Sys.getenv("PASSWORDNAME")
 
 
-#set up a connection
+  #set up a connection
 con <- dbConnect(dbDriver("PostgreSQL"), 
                  dbname = db_name, 
                  host = host_name, 
