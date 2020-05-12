@@ -159,9 +159,9 @@ ggplot(one_journey, aes(x=transaction_datetime, y=journey_proportion, col=journe
 
 #make a compsite version of the tweo datasets so you can see what it looks like
 
-tt_tester_sub <- tt_testers[, .(journey_proportion, journey_scheduled, time=arrive),]
+tt_tester_sub <- tt_testers[, .(journey_proportion, journey_scheduled, time=as.POSIXct(paste0(strftime(min_datetime, format = "%Y-%m-%d")," ",arrive))),]
 
-one_journey_sub <- one_journey[,.(journey_proportion, journey_scheduled=journey_number, time=strftime(transaction_datetime, format = "%H:%M:%S")),]
+one_journey_sub <- one_journey[,.(journey_proportion, journey_scheduled=journey_number, time=transaction_datetime),]
 
 tt_tran_comp <- rbind(tt_tester_sub, one_journey_sub)
 
@@ -169,3 +169,86 @@ tt_tran_comp <- rbind(tt_tester_sub, one_journey_sub)
 ggplot(tt_tran_comp, aes(x=time, y=journey_proportion, col=journey_scheduled)) +
   theme_ipsum_rc() +
   geom_point()
+
+#the journeys should always be pretty linear.
+
+#can you think of any occasions in which they wouldn't?
+
+#can you just find the y=0 intercept and then get the closest?
+
+#maybe should do a common sense test of whether the relationship shown is similar
+
+#so you get the R value then and from there go on to check which y intercept is closest
+
+#what about skipping off the beginning and end of journeys in case they are mistaken
+#^this should be taken at an earlier phase.
+
+#time needs to be time rather than a character
+#create a timestamp for the timetable data using the date extracted from the tran_time
+
+linear_trans <- lm(formula = journey_proportion ~ time, data=tt_tran_comp[journey_scheduled=="90",])
+
+
+summary(linear_trans)
+
+#so to get the time intercept
+
+summary(linear_trans)$r.squared
+
+summary(linear_trans)
+
+as.POSIXct(abs(linear_trans$coefficients[1])/linear_trans$coefficients[2], origin = "1970-01-01")
+
+#plot the new line on top
+
+ggplot(tt_tran_comp, aes(x=time, y=journey_proportion, col=journey_scheduled)) +
+  theme_ipsum_rc() +
+  geom_point() +
+  geom_smooth(method="lm", size=1, se=FALSE)
+
+#slightly different slopes even from the same data
+
+#get the results for all the different groups
+#can do this using data.table
+
+#found here: https://stackoverflow.com/a/33754058/10087503
+tt_tran_comp[,.(r_sq=summary(lm(journey_proportion ~ time))$r.squared, time_intercept=(summary(lm(journey_proportion ~ time))$r.squared)), by=journey_scheduled]
+
+tt_tran_comp[,.(r_sq=summary(lm(journey_proportion ~ time))$r.squared,
+                time_coef=lm(journey_proportion ~ time)$coefficients[2],
+                time_intercept=as.POSIXct((abs(lm(journey_proportion ~ time)$coefficients[1])/lm(journey_proportion ~ time)$coefficients[2]), origin = "1970-01-01")), by=journey_scheduled]
+
+#so now run it once for the tt and once for the trans data and compare
+
+tran_lms <- one_journey_sub[,.(r_sq=summary(lm(journey_proportion ~ time))$r.squared,
+                               time_coef=lm(journey_proportion ~ time)$coefficients[2],
+                               time_intercept=as.POSIXct((abs(lm(journey_proportion ~ time)$coefficients[1])/lm(journey_proportion ~ time)$coefficients[2]), origin = "1970-01-01")), by=journey_scheduled]
+
+tran_start_time <- tran_lms$time_intercept[1]
+
+tt_lms <- tt_tester_sub[,.(r_sq=summary(lm(journey_proportion ~ time))$r.squared,
+                           time_coef=lm(journey_proportion ~ time)$coefficients[2],
+                           time_intercept=as.POSIXct((abs(lm(journey_proportion ~ time)$coefficients[1])/lm(journey_proportion ~ time)$coefficients[2]), origin = "1970-01-01")), by=journey_scheduled][,
+                             start_diff:=abs(tran_start_time-time_intercept)
+                           ][
+                             order(start_diff)
+                           ]
+
+#look at them
+#should I take 1 away from "n" in the timetable so that it starts with 0? No, that is journey proportion
+#what are you actually doing here?
+
+#make a shorter one that only get necessary info
+tran_lms <- one_journey_sub[,.(time_intercept=as.POSIXct((abs(lm(journey_proportion ~ time)$coefficients[1])/lm(journey_proportion ~ time)$coefficients[2]), origin = "1970-01-01")), by=journey_scheduled]
+
+tran_start_time <- tran_lms$time_intercept[1]
+
+tt_lms <- tt_tester_sub[,.(r_sq=summary(lm(journey_proportion ~ time))$r.squared,
+                           time_coef=lm(journey_proportion ~ time)$coefficients[2],
+                           time_intercept=as.POSIXct((abs(lm(journey_proportion ~ time)$coefficients[1])/lm(journey_proportion ~ time)$coefficients[2]), origin = "1970-01-01")), by=journey_scheduled][,
+                                                                                                                                                                                                        start_diff:=abs(tran_start_time-time_intercept)
+                                                                                                                                                                                                        ][
+                                                                                                                                                                                                          order(start_diff)
+                                                                                                                                                                                                          ]
+#nearest journey
+tt_nearest <- tt_lms$journey_scheduled[1]
