@@ -118,5 +118,9 @@ for(i in 1:length(journey_nums)){
   
   #what about using a rolling join for it
   #mixture of time and proportion of the journey done
+  #subset the tt_data to get only the current journey's data
+  tt_one <- tt_testers[id==tt_nearest_id,]
+  
+  
   
 }

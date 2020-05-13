@@ -277,4 +277,32 @@ one_journey$tt_id <- tt_nearest_id
 #maybe first step is to assign the transactions the journey ID and then can compare different 
 #ways of assigning stops from there
 
+tt_one <- tt_testers[id==tt_nearest_id,]
 
+
+tt_one
+one_journey
+
+#test a join on journey proportion and another on time
+#this "many" join thing may work
+
+#what about doing the many join for time and proportion and then using 
+#the group of stops as a possible answer
+
+#round journey_prop to make vaguer
+tt_one[,round_journey_prop:=round(journey_proportion, 2)]
+one_journey[,round_journey_prop:=round(journey_proportion, 2)]
+
+tt_prop_join <- tt_one[one_journey, on="round_journey_prop", roll="nearest"]
+
+#do another one on time
+tt_one[,time:=as.POSIXct(paste0(strftime(min_datetime, format = "%Y-%m-%d")," ",arrive))]
+
+one_journey[,time:=transaction_datetime]
+
+tt_time_join <- tt_one[one_journey, on="time", roll="nearest"]
+
+# the time version gets more resutls as is vager
+# using the journey proportion version gets 
+# multiple stops for each of the same transactions
+# 
