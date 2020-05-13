@@ -57,6 +57,16 @@ con <- dbConnect(dbDriver("PostgreSQL"),
                  user = user_name, 
                  password = password_name)
 
+#add the table name and schema name
+dummy_data_schema <- "dummy_trans_tt"
+dummy_data_table <- "oct_2015_dummy_sample"
+
+#table to create
+new_table_name <- paste0(dummy_data_table, "_linked")
+
+#transaction var name
+tran_string <- "transaction_datetime"
+
 #now to load in the two datasets
 
 #first get the "transaction data"
@@ -159,7 +169,10 @@ ggplot(one_journey, aes(x=transaction_datetime, y=journey_proportion, col=journe
 
 #make a compsite version of the tweo datasets so you can see what it looks like
 
-tt_tester_sub <- tt_testers[, .(journey_proportion, journey_scheduled, time=as.POSIXct(paste0(strftime(min_datetime, format = "%Y-%m-%d")," ",arrive))),]
+tt_tester_sub <- tt_testers[, .(journey_proportion, 
+                                journey_scheduled, 
+                                time=as.POSIXct(paste0(strftime(min_datetime, format = "%Y-%m-%d")," ",arrive)),
+                                tt_id=id),]
 
 one_journey_sub <- one_journey[,.(journey_proportion, journey_scheduled=journey_number, time=transaction_datetime),]
 
@@ -239,16 +252,29 @@ tt_lms <- tt_tester_sub[,.(r_sq=summary(lm(journey_proportion ~ time))$r.squared
 #what are you actually doing here?
 
 #make a shorter one that only get necessary info
-tran_lms <- one_journey_sub[,.(time_intercept=as.POSIXct((abs(lm(journey_proportion ~ time)$coefficients[1])/lm(journey_proportion ~ time)$coefficients[2]), origin = "1970-01-01")), by=journey_scheduled]
+tran_lms <- one_journey_sub[,.(time_intercept=as.POSIXct((abs(lm(journey_proportion ~ time)$coefficients[1])/lm(journey_proportion ~ time)$coefficients[2]), origin = "1970-01-01")), 
+                            by=journey_scheduled]
 
 tran_start_time <- tran_lms$time_intercept[1]
 
 tt_lms <- tt_tester_sub[,.(r_sq=summary(lm(journey_proportion ~ time))$r.squared,
                            time_coef=lm(journey_proportion ~ time)$coefficients[2],
-                           time_intercept=as.POSIXct((abs(lm(journey_proportion ~ time)$coefficients[1])/lm(journey_proportion ~ time)$coefficients[2]), origin = "1970-01-01")), by=journey_scheduled][,
-                                                                                                                                                                                                        start_diff:=abs(tran_start_time-time_intercept)
-                                                                                                                                                                                                        ][
-                                                                                                                                                                                                          order(start_diff)
-                                                                                                                                                                                                          ]
+                           time_intercept=as.POSIXct((abs(lm(journey_proportion ~ time)$coefficients[1])/lm(journey_proportion ~ time)$coefficients[2]), origin = "1970-01-01")), 
+                        by=.(journey_scheduled, tt_id)
+                        ][,start_diff:=abs(tran_start_time-time_intercept)
+                          ][order(start_diff)]
+
+
 #nearest journey
-tt_nearest <- tt_lms$journey_scheduled[1]
+tt_nearest_sched <- tt_lms$journey_scheduled[1]
+tt_nearest_id <- tt_lms$tt_id[1]
+
+#attache tt_id to the journey
+one_journey$tt_id <- tt_nearest_id
+
+#should I keep the ID of the journey and use this to reattache.
+
+#maybe first step is to assign the transactions the journey ID and then can compare different 
+#ways of assigning stops from there
+
+
