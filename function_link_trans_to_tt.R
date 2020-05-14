@@ -40,7 +40,7 @@ if(dbExistsTable(con,c(dummy_data_schema, record_vs_codes))==TRUE){
 }
 
 #make the table
-dbGetTable(con, glue("CREATE TABLE {dummy_data_schema}.{record_vs_codes} (record_id int, time_codes TEXT [], stop_codes TEXT []);"))
+dbGetQuery(con, glue("CREATE TABLE {dummy_data_schema}.{record_vs_codes} (record_id int, time_join_stops TEXT [], prop_join_stops TEXT []);"))
 
 
 #transaction var name
@@ -61,7 +61,7 @@ journey_nums <- unique(one_machine_transaction_data$journey_number)
 for(i in 1:length(journey_nums)){
   
   #get only one journey
-  one_journey <- one_machine_transaction_data[one_machine_transaction_data$journey_number==journey_nums[i],]
+  one_journey <- setDT(one_machine_transaction_data[one_machine_transaction_data$journey_number==journey_nums[i],])
   
   #check that there is only one journey in this section
   #might not need this bit if I sort out the journey number assigning cycle
@@ -109,7 +109,7 @@ for(i in 1:length(journey_nums)){
   #get lm details for the current journey
   tran_lms <- one_journey[,.(journey_proportion, journey_number, time=transaction_datetime),
                           ][,.(time_intercept=as.POSIXct((abs(lm(journey_proportion ~ time)$coefficients[1])/lm(journey_proportion ~ time)$coefficients[2]), origin = "1970-01-01")), 
-                            by=journey_scheduled]
+                            by=journey_number]
   
   #get the x (time) intercept val
   tran_start_time <- tran_lms$time_intercept[1]
@@ -122,7 +122,7 @@ for(i in 1:length(journey_nums)){
                        ][,.(r_sq=summary(lm(journey_proportion ~ time))$r.squared,
                                           time_coef=lm(journey_proportion ~ time)$coefficients[2],
                                           time_intercept=as.POSIXct((abs(lm(journey_proportion ~ time)$coefficients[1])/lm(journey_proportion ~ time)$coefficients[2]), origin = "1970-01-01")), 
-                         by=journey_scheduled
+                         by=.(journey_scheduled, tt_id)
                          ][,start_diff:=abs(tran_start_time-time_intercept)
                            ][order(start_diff)]
   
@@ -137,8 +137,32 @@ for(i in 1:length(journey_nums)){
   #subset the tt_data to get only the current journey's data
   tt_one <- tt_testers[id==tt_nearest_id,]
   
+  
+  #round up journey proportions to one decimal place and join
+  tt_one[,round_journey_prop:=round(journey_proportion, 1)]
+  one_journey[,round_journey_prop:=round(journey_proportion, 1)]
+  
+  tt_prop_join <- tt_one[one_journey, on="round_journey_prop", roll="nearest"]
+  
+  #do another on the time of the journey
+  #do another one on time
+  tt_one[,time:=as.POSIXct(paste0(strftime(min_datetime, format = "%Y-%m-%d")," ",arrive))]
+  
+  one_journey[,time:=transaction_datetime]
+  
+  tt_time_join <- tt_one[one_journey, on="time", roll="nearest"]
+  
+  #get arrays of possible stop codes
+  tt_time_stop_array <- tt_time_join[, .(time_join_stops=paste0("{",paste(naptan_code, collapse = "', '"),"}")),by=record_id]
+  
+  tt_prop_stop_array <- tt_prop_join[,.(prop_join_stops=paste0("{",paste(naptan_code, collapse = "', '"),"}")),by=record_id]
+  
+  #join these together
+  
+  tt_array_comb <- tt_time_stop_array[tt_prop_stop_array, on="record_id"]
+  
   #then upload a table of record_id and time stops and proportion stops
-  dbWriteTable(con, c(dummy_data_schema, record_vs_codes), tt_one)
+  dbWriteTable(con, c(dummy_data_schema, record_vs_codes), tt_array_comb, row.names=FALSE, append=TRUE)
   
   
 }
