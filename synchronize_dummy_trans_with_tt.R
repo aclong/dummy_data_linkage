@@ -290,8 +290,8 @@ one_journey
 #the group of stops as a possible answer
 
 #round journey_prop to make vaguer
-tt_one[,round_journey_prop:=round(journey_proportion, 2)]
-one_journey[,round_journey_prop:=round(journey_proportion, 2)]
+tt_one[,round_journey_prop:=round(journey_proportion, 1)]
+one_journey[,round_journey_prop:=round(journey_proportion, 1)]
 
 tt_prop_join <- tt_one[one_journey, on="round_journey_prop", roll="nearest"]
 
@@ -303,6 +303,26 @@ one_journey[,time:=transaction_datetime]
 tt_time_join <- tt_one[one_journey, on="time", roll="nearest"]
 
 # the time version gets more resutls as is vager
-# using the journey proportion version gets 
-# multiple stops for each of the same transactions
+# using the journey proportion version gets fewer matches for each of the same transactions
+# this measure is just as arbitrary as the time one if not more so.
+# shall I add all possible matches then?
+
+# could make a column that holds arrays of all possible stops by proportion and another by time
 # 
+
+tt_time_stop_array <- tt_time_join[, .(time_join_stops=list(naptan_code)),by=record_id]
+
+tt_prop_stop_array <- tt_prop_join[,.(prop_join_stops=list(naptan_code)),by=record_id]
+
+#have changed proportion to join on 1 decimal place now, have more results
+
+#compare
+
+tt_array_comb <- tt_time_stop_array[tt_prop_stop_array, on="record_id"]
+
+# i think best way forward is to upload all possible matches to an array column in the db.
+# can sort out later
+
+# try a bit of mapping the different techniques and testing which is more successful
+
+

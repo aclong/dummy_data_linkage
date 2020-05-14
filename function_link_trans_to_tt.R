@@ -24,8 +24,24 @@ con <- dbConnect(dbDriver("PostgreSQL"),
 dummy_data_schema <- "dummy_trans_tt"
 dummy_data_table <- "oct_2015_dummy_sample"
 
-#table to create
+#linked data table name
 new_table_name <- paste0(dummy_data_table, "_linked")
+
+#possible stop table name
+record_vs_codes <- "record_vs_codes"
+
+#see if table exists and if yes delete and recreate
+#check if it exists and if so delete
+#remove table if it exists
+if(dbExistsTable(con,c(dummy_data_schema, record_vs_codes))==TRUE){
+  dbGetQuery(con, glue("DROP TABLE {dummy_data_schema}.{record_vs_codes};"))
+  
+  print("dropping old table")
+}
+
+#make the table
+dbGetTable(con, glue("CREATE TABLE {dummy_data_schema}.{record_vs_codes} (record_id int, time_codes TEXT [], stop_codes TEXT []);"))
+
 
 #transaction var name
 tran_string <- "transaction_datetime"
@@ -121,6 +137,8 @@ for(i in 1:length(journey_nums)){
   #subset the tt_data to get only the current journey's data
   tt_one <- tt_testers[id==tt_nearest_id,]
   
+  #then upload a table of record_id and time stops and proportion stops
+  dbWriteTable(con, c(dummy_data_schema, record_vs_codes), tt_one)
   
   
 }
