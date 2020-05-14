@@ -164,5 +164,4 @@ for(i in 1:length(journey_nums)){
   #then upload a table of record_id and time stops and proportion stops
   dbWriteTable(con, c(dummy_data_schema, record_vs_codes), tt_array_comb, row.names=FALSE, append=TRUE)
   
-  
 }
