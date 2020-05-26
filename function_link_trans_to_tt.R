@@ -65,36 +65,7 @@ all_mach_ids <- dbGetQuery(con, glue("SELECT DISTINCT machine_id FROM {dummy_dat
 #length(all_mach_ids$machine_id)
 
 ###########################
-#test version
-
-#with first 30 ids
-
-#user  system elapsed 
-#100.774   1.143  32.379 
-
-#now even longer?
-#   user  system elapsed 
-#110.430   1.190  33.185 
-
-#still longer
-#user  system elapsed 
-#106.816   1.075  33.457 
-
-#adding the new info must take time
-
-#this current iterration got up to machine number 2967 then threw an error:
-
-#Error in (x + (6 - start))%%7 : 
-#  Arithmetic operators undefined for 'Period' and 'numeric' classes:
-#  convert one to numeric or a matching time-span class.
-#In addition: Warning messages:
-#  1: In min(one_journey$transaction_datetime) :
-#  no non-missing arguments to min; returning Inf
-#2: In max(one_journey$transaction_datetime) :
-#  no non-missing arguments to max; returning -Inf
-#Timing stopped at: 9307 89 4660
-
-#the id with the error is "3d4qr8p3eftobaqxokn3"
+#new version
 
 system.time(
 for(id_num in 1:length(all_mach_ids$machine_id)){
