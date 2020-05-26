@@ -163,12 +163,6 @@ for(id_num in 1:length(all_mach_ids$machine_id)){
                                           ][1, tt_id]
         
         
-        #attache tt_id to the one_journey dt
-        #this is no longer used
-        #one_journey$tt_id <- tt_nearest_id
-        
-        #what about using a rolling join for it
-        #mixture of time and proportion of the journey done
         #subset the tt_data to get only the current journey's data
         #round up journey proportions to one decimal place and join
         tt_one <- tt_testers[id==tt_nearest_id,
