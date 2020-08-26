@@ -174,14 +174,32 @@ tt_tester_sub <- tt_testers[, .(journey_proportion,
                                 time=as.POSIXct(paste0(strftime(min_datetime, format = "%Y-%m-%d")," ",arrive)),
                                 tt_id=id),]
 
-one_journey_sub <- one_journey[,.(journey_proportion, journey_scheduled=journey_number, time=transaction_datetime),]
+one_journey_sub <- one_journey[,.(journey_proportion, journey_scheduled=journey_number, time=transaction_datetime, tt_id="Transaction Data"),]
 
 tt_tran_comp <- rbind(tt_tester_sub, one_journey_sub)
 
 
-ggplot(tt_tran_comp, aes(x=time, y=journey_proportion, col=journey_scheduled)) +
+ggplot(tt_tran_comp, aes(x=time, y=journey_proportion, col=tt_id)) +
   theme_ipsum_rc() +
   geom_point()
+
+#make a nicer version for the report
+
+#make the journey ID
+
+tran_vs_tt_plot <- ggplot(tt_tran_comp, aes(x=time, y=journey_proportion, col=tt_id)) +
+  theme_ipsum_rc(axis_title_size = 14) +
+  scale_colour_ft(name = "Journey ID") +
+  geom_point(shape=24) +
+  #scale_x_datetime(breaks=date_breaks(width = "1 hours"), date_labels = "%H") +
+  scale_y_continuous(breaks = seq(0,1,.2)) +
+  labs(x="Time", y="Journey Proportion") +
+  geom_smooth(method="lm", se=FALSE)
+
+
+tran_vs_tt_plot
+
+ggsave("~/DATA/update_report_visulisations/plots/tran_vs_tt_plot_withlines.png", tran_vs_tt_plot, height = 6, width = 9)
 
 #the journeys should always be pretty linear.
 
